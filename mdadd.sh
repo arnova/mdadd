@@ -427,7 +427,7 @@ sanity_check()
   fi
 
   echo "* Inspecting partition table of source device $SOURCE..."
-  sfdisk -d "$SOURCE" >|"/tmp/partitions.source"
+  sfdisk -d "$SOURCE" >"/tmp/partitions.source"
   retval=$?
   if [ $retval -ne 0 ]; then
     printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while reading the partition table on $SOURCE!\n\n\033[0m" >&2
