@@ -706,7 +706,7 @@ for arg in $*; do
                                  --force|-force|-f) FORCE=1;;
                       --noptupdate|--nopt|--nopart) NO_PT_UPDATE=1;;
                            --nobootupdate|--noboot) NO_BOOT_UPDATE=1;;
-                                            --help) show_help;
+                                         --help|-h) show_help;
                                                     exit 0
                                                    ;;
                                                 -*) echo "ERROR: Bad argument \"$arg\"" >&2
