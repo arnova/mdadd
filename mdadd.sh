@@ -434,7 +434,7 @@ sanity_check()
     exit 11
   fi
 
-  echo "* Inspecting partition table of target device $SOURCE..."
+  echo "* Inspecting partition table of target device $TARGET..."
   sfdisk -d "$TARGET" >"/tmp/partitions.target"
   retval=$?
   if [ $retval -ne 0 ]; then
