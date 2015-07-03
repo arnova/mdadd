@@ -1,10 +1,10 @@
 #!/bin/sh
 
-MY_VERSION="2.00-GPT-BETA11"
+MY_VERSION="2.00-GPT-BETA12"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: December 8, 2014
-# (C) Copyright 2005-2014 by Arno van Amersfoort
+# Last update: July 3, 2015
+# (C) Copyright 2005-2015 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -216,7 +216,7 @@ part_check()
 {
   local DEVICE="$1"
 
-  printf "Waiting for up to date partion table from kernel for $DEVICE..."
+  printf "Waiting for up to date partition table from kernel for $DEVICE..."
 
   # Retry several times since some daemons can block the re-reread for a while (like dm/lvm)
   IFS=' '
@@ -427,15 +427,23 @@ sanity_check()
   fi
 
   echo "* Inspecting partition table of source device $SOURCE..."
-  local SFDISK_SOURCE="$(sfdisk -d "$SOURCE" 2>/dev/null)"
+  sfdisk -d "$SOURCE" >|"/tmp/partitions.source"
   retval=$?
   if [ $retval -ne 0 ]; then
     printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while reading the partition table on $SOURCE!\n\n\033[0m" >&2
     exit 11
   fi
 
+  echo "* Inspecting partition table of target device $SOURCE..."
+  sfdisk -d "$TARGET" >"/tmp/partitions.target"
+  retval=$?
+  if [ $retval -ne 0 ]; then
+    printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while reading the partition table on $SOURCE!\n\033[0m" >&2
+    exit 11
+  fi
+
   # GPT found on source?:
-  if echo "$SFDISK_SOURCE" |grep -q -E -i '^/dev/.*[[:blank:]]Id=ee'; then
+  if grep -q -E -i '^/dev/.*[[:blank:]]Id=ee' "/tmp/partitions.source"; then
     # Make sure binaries are available
     check_command_error sgdisk
     check_command_error gdisk
@@ -539,16 +547,10 @@ zap_mbr_and_partition_table()
 copy_track0()
 {
   echo "* Copying track0(containing MBR) from $SOURCE to $TARGET:"
-  if [ $NO_PT_UPDATE -ne 1 ]; then
-#        result="$(dd if="$SOURCE" of=/dev/$TARGET_NODEV bs=512 count=63 2>&1)"
-    # For clean or empty disks always try to use a full 1MiB of DD_SOURCE else GRUB2 may not work.
-    dd if="$SOURCE" of="$TARGET" bs=512 count=2048
-    retval=$?
-  else
-    # FIXME: Need to detect the empty space before the first partition since GRUB2 may be longer than 32256 bytes!
-    dd if="$SOURCE" of="$TARGET" bs=446 count=1 && dd if="$SOURCE" of=/dev/$TARGET_NODEV bs=512 seek=1 skip=1 count=62
-    retval=$?
-  fi
+  # For clean or empty disks always try to use a full 1MiB of DD_SOURCE else GRUB2 may not work.
+  # This may overwrite the partition table and the beginning of the first partition but we update the pt anyway
+  dd if="$SOURCE" of="$TARGET" bs=512 count=2048
+  retval=$?
 
   if [ $retval -ne 0 ]; then
     printf "\033[40m\033[1;31mERROR: Track0(MBR) update from $SOURCE to /dev/$TARGET_NODEV failed($retval). Quitting...\n\n\033[0m" >&2
@@ -583,6 +585,11 @@ copy_partition_table()
 {
   # Handle GPT partition table
   if [ $GPT_ENABLE -eq 1 ]; then
+    if [ $NO_PT_UPDATE -eq 1 ]; then
+      # Nothing to do
+      return 0 
+    fi
+
     echo "* Copying GPT partition table from source $SOURCE to target $TARGET..."
     result="$(sgdisk_safe --replicate="$TARGET" "$SOURCE" 2>&1)"
     retval=$?
@@ -599,9 +606,15 @@ copy_partition_table()
     sgdisk_safe --randomize-guids "$TARGET" >/dev/null
   else
     # Handle DOS partition table
-    echo "* Copying DOS partition table from source $SOURCE to target $TARGET..."
+    if [ $NO_PT_UPDATE -eq 1 ]; then
+      echo "* Preserving DOS partition table on target $TARGET..."
+      SFDISK_SOURCE="/tmp/partitions.target"
+    else
+      echo "* Copying DOS partition table from source $SOURCE to target $TARGET..."
+      SFDISK_SOURCE="/tmp/partitions.source"
+    fi
 
-    result="$(sfdisk -d "$SOURCE" |sfdisk --no-reread --force "$TARGET" 2>&1)"
+    result="$(cat "$SFDISK_SOURCE" |sfdisk --no-reread --force "$TARGET" 2>&1)"
     retval=$?
 
     # Can't just check sfdisk's return code as it is not reliable
@@ -745,9 +758,7 @@ if [ $NO_BOOT_UPDATE -ne 1 -a $GPT_ENABLE -eq 0 ]; then
 fi
 
 # Update (copy) partitions from source to target
-if [ $NO_PT_UPDATE -ne 1 ]; then
-  copy_partition_table;
-fi
+copy_partition_table;
 
 # Create actual md devices on target
 create_md_devices;
