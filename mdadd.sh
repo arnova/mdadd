@@ -435,7 +435,7 @@ sanity_check()
   fi
 
   echo "* Inspecting partition table of target device $TARGET..."
-  sfdisk -d "$TARGET" >"/tmp/partitions.target"
+  sfdisk -d "$TARGET" >"/tmp/partitions.target" 2>/dev/null
   retval=$?
   if [ $retval -ne 0 ]; then
     printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while reading the partition table on $SOURCE!\n\033[0m" >&2
@@ -580,6 +580,7 @@ sgdisk_safe()
   echo "$result"
   return 0
 }
+
 
 copy_partition_table()
 {
@@ -753,7 +754,7 @@ disable_swaps;
 zap_mbr_and_partition_table;
 
 # Copy legacy MBR/track0 boot loader to target disk (if any)
-if [ $NO_BOOT_UPDATE -ne 1 -a $GPT_ENABLE -eq 0 ]; then
+if [ $NO_BOOT_UPDATE -ne 1 ]; then
   copy_track0;
 fi
 
