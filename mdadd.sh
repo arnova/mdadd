@@ -540,18 +540,18 @@ copy_track0()
 {
   echo "* Copying track0(containing MBR) from $SOURCE to $TARGET:"
   if [ $NO_PT_UPDATE -ne 1 ]; then
-#        result="$(dd if="$DD_SOURCE" of=/dev/$TARGET_NODEV bs=512 count=63 2>&1)"
+#        result="$(dd if="$SOURCE" of=/dev/$TARGET_NODEV bs=512 count=63 2>&1)"
     # For clean or empty disks always try to use a full 1MiB of DD_SOURCE else GRUB2 may not work.
     dd if="$SOURCE" of="$TARGET" bs=512 count=2048
     retval=$?
   else
     # FIXME: Need to detect the empty space before the first partition since GRUB2 may be longer than 32256 bytes!
-    dd if="$SOURCE" of="$TARGET" bs=446 count=1 && dd if="$DD_SOURCE" of=/dev/$TARGET_NODEV bs=512 seek=1 skip=1 count=62
+    dd if="$SOURCE" of="$TARGET" bs=446 count=1 && dd if="$SOURCE" of=/dev/$TARGET_NODEV bs=512 seek=1 skip=1 count=62
     retval=$?
-  fi 
+  fi
 
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: Track0(MBR) update from $DD_SOURCE to /dev/$TARGET_NODEV failed($retval). Quitting...\n\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Track0(MBR) update from $SOURCE to /dev/$TARGET_NODEV failed($retval). Quitting...\n\n\033[0m" >&2
     exit 5
   fi 
 }
