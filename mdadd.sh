@@ -331,6 +331,8 @@ check_command_warning()
 
 sanity_check()
 {
+  local REPORT_FORCE=0
+
   if [ "$(id -u)" != "0" ]; then 
     printf "\033[40m\033[1;31mERROR: Root check FAILED (you MUST be root to use this script)! Quitting...\n\n\033[0m" >&2
     exit 1
@@ -378,13 +380,6 @@ sanity_check()
     exit 7
   fi
 
-  if [ -n "$(get_partitions ${TARGET_NODEV})" ] && [ $FORCE -ne 1 ]; then
-    get_partitions_with_size_type /dev/$TARGET_NODEV 
-    printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV already contains partitions (Use --force to override):\n\033[0m" >&2
-    echo ""
-    exit 8
-  fi
-
   SOURCE_SIZE="$(blockdev --getsize64 "/dev/$SOURCE_NODEV" 2>/dev/null)"
   if [ -z "$SOURCE_SIZE" ]; then
     printf "\033[40m\033[1;31mERROR: Source reports zero size! Quitting...\n\033[0m" >&2
@@ -402,11 +397,22 @@ sanity_check()
   if [ $SOURCE_SIZE -gt $TARGET_SIZE ]; then
     if [ $FORCE -ne 1 ]; then
       printf "\033[40m\033[1;31mERROR: Target device $TARGET ($TARGET_SIZE blocks) is smaller than source device $SOURCE ($SOURCE_SIZE blocks)! Quitting (Use --force to override)...\n\033[0m" >&2
-      exit 8
+      REPORT_FORCE=1
     else
       printf "\033[40m\033[1;31mWARNING: Target device $TARGET ($TARGET_SIZE blocks) is smaller than source device $SOURCE ($SOURCE_SIZE blocks)\nPress enter to continue or CTRL-C to abort...\n\033[0m" >&2
       read dummy
     fi
+  fi
+
+  if [ -n "$(get_partitions ${TARGET_NODEV})" ] && [ $FORCE -ne 1 ]; then
+    get_partitions_with_size_type /dev/$TARGET_NODEV 
+    printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV already contains partitions (Use --force to override):\n\033[0m" >&2
+    echo ""
+    REPORT_FORCE=1
+  fi
+
+  if [ $REPORT_FORCE -eq 1 ]; then
+    exit 8
   fi
 
   echo "* Source device $SOURCE: $(show_block_device_info $SOURCE)"
