@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.00-GPT-BETA12"
+MY_VERSION="2.00-GPT-BETA13"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: July 3, 2015
+# Last update: August 31, 2015
 # (C) Copyright 2005-2015 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -426,30 +426,72 @@ sanity_check()
     exit 9
   fi
 
-  echo "* Inspecting partition table of source device $SOURCE..."
-  sfdisk -d "$SOURCE" >"/tmp/partitions.source"
+  echo "* Inspecting DOS partition table of source device $SOURCE..."
+  if [ -e "/tmp/sfdisk.source" ]; then
+    if ! mv "/tmp/sfdisk.source" "/tmp/sfdisk.source.bak"; then
+      printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sfdisk.source! Quitting...\n\n\033[0m" >&2
+      exit 11
+    fi
+  fi
+  sfdisk -d "$SOURCE" >"/tmp/sfdisk.source"
   retval=$?
   if [ $retval -ne 0 ]; then
     printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while reading the partition table on $SOURCE!\n\n\033[0m" >&2
     exit 11
   fi
 
-  echo "* Inspecting partition table of target device $TARGET..."
-  sfdisk -d "$TARGET" >"/tmp/partitions.target" 2>/dev/null
+  echo "* Inspecting DOS partition table of target device $TARGET..."
+  if [ -e "/tmp/sfdisk.target" ]; then
+    if ! mv "/tmp/sfdisk.target" "/tmp/sfdisk.target.bak"; then
+      printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sfdisk.target! Quitting...\n\n\033[0m" >&2
+      exit 11
+    fi
+  fi
+  sfdisk -d "$TARGET" >"/tmp/sfdisk.target" 2>/dev/null
   retval=$?
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while reading the partition table on $SOURCE!\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while reading the partition table on $TARGET!\n\033[0m" >&2
     exit 11
   fi
 
   # GPT found on source?:
-  if grep -q -E -i '^/dev/.*[[:blank:]]Id=ee' "/tmp/partitions.source"; then
+  if grep -q -E -i '^/dev/.*[[:blank:]]Id=ee' "/tmp/sfdisk.source"; then
     # Make sure binaries are available
     check_command_error sgdisk
     check_command_error gdisk
 
     # Flag GPT use for the rest of the program:
     GPT_ENABLE=1
+
+    echo "* Inspecting GPT partition table of source device $TARGET..."
+    if [ -e "/tmp/sgdisk.source" ]; then
+      if ! mv "/tmp/sgdisk.source" "/tmp/sgdisk.source.bak"; then
+        printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.source! Quitting...\n\n\033[0m" >&2
+        exit 11
+      fi
+    fi
+    sgdisk_safe --backup="/tmp/sgdisk.source" "$SOURCE"
+    retval=$?
+    if [ $retval -ne 0 ]; then
+      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while reading the partition table on $SOURCE!\n\033[0m" >&2
+      exit 11
+    fi
+  fi
+
+  if grep -q -E -i '^/dev/.*[[:blank:]]Id=ee' "/tmp/sfdisk.target" && check_command sgdisk; then
+    echo "* Inspecting GPT partition table of target device $TARGET..."
+    if [ -e "/tmp/sgdisk.target" ]; then
+      if ! mv "/tmp/sgdisk.target" "/tmp/sgdisk.target.bak"; then
+        printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.target! Quitting...\n\n\033[0m" >&2
+        exit 11
+      fi
+    fi
+    sgdisk_safe --backup="/tmp/sgdisk.target" "$TARGET" 2>/dev/null
+    retval=$?
+    if [ $retval -ne 0 ]; then
+      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while reading the partition table on $TARGET!\n\033[0m" >&2
+      exit 11
+    fi
   fi
 
   echo "* Checking status of running MDs..."
@@ -587,19 +629,19 @@ copy_partition_table()
   # Handle GPT partition table
   if [ $GPT_ENABLE -eq 1 ]; then
     if [ $NO_PT_UPDATE -eq 1 ]; then
-      # Nothing to do
-      return 0 
-    fi
-
-    echo "* Copying GPT partition table from source $SOURCE to target $TARGET..."
-    result="$(sgdisk_safe --replicate="$TARGET" "$SOURCE" 2>&1)"
-    retval=$?
-    if [ $retval -ne 0 ]; then
-      echo "$result" >&2
-      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while copying the GPT partition table!\n\n\033[0m" >&2
-      exit 9
+      echo "* Keeping GPT partition table on target $TARGET..."
+      return 0 # Nothing to do
     else
-      echo "$result"
+      echo "* Copying GPT partition table from source $SOURCE to target $TARGET..."
+      result="$(sgdisk_safe --load-backup="/tmp/sgdisk.source" "$TARGET" 2>&1)"
+      retval=$?
+      if [ $retval -ne 0 ]; then
+        echo "$result" >&2
+        printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while copying the GPT partition table!\n\n\033[0m" >&2
+        exit 9
+      else
+        echo "$result"
+      fi
     fi
 
     # Randomize GUIDS, since we don't want both disks to use the same ones
@@ -609,10 +651,10 @@ copy_partition_table()
     # Handle DOS partition table
     if [ $NO_PT_UPDATE -eq 1 ]; then
       echo "* Preserving DOS partition table on target $TARGET..."
-      SFDISK_SOURCE="/tmp/partitions.target"
+      SFDISK_SOURCE="/tmp/sfdisk.target"
     else
       echo "* Copying DOS partition table from source $SOURCE to target $TARGET..."
-      SFDISK_SOURCE="/tmp/partitions.source"
+      SFDISK_SOURCE="/tmp/sfdisk.source"
     fi
 
     result="$(cat "$SFDISK_SOURCE" |sfdisk --no-reread --force "$TARGET" 2>&1)"
