@@ -174,7 +174,7 @@ show_block_device_info()
   if [ -n "$REV" -a "$REV" != "n/a" ]; then
     NAME="${NAME}${REV} "
   fi
-  
+
   if [ -n "$NAME" ]; then
     printf "$NAME"
   else
@@ -370,6 +370,11 @@ sanity_check()
     printf "\033[40m\033[1;31mERROR: The source device specified is an md-device! Quitting...\n\033[0m" >&2
     echo "A physical drive (part of the md-array(s)) is required as source device (eg. /dev/sda)!" >&2
     echo "" >&2
+    exit 5
+  fi
+
+  if [ "$SOURCE" = "$TARGET" ]; then
+    printf "\033[40m\033[1;31mERROR: Source and target device are the same ($TARGET)! Quitting...\n\n033[0m" >&2
     exit 5
   fi
 
