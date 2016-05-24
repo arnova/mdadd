@@ -1,10 +1,10 @@
 #!/bin/sh
 
-MY_VERSION="2.00-GPT-BETA13"
+MY_VERSION="2.01"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: August 31, 2015
-# (C) Copyright 2005-2015 by Arno van Amersfoort
+# Last update: May 24, 2016
+# (C) Copyright 2005-2016 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -261,13 +261,15 @@ partprobe()
   while [ $TRY -gt 0 ]; do
     TRY=$(($TRY - 1))
 
-    # Somehow using partprobe here doesn't always work properly, using sfdisk -R instead for now
-    result="$(sfdisk -R "$DEVICE" 2>&1)"
+    # Somehow using the partprobe binary itself doesn't always work properly, so use blockdev instead
+    result="$(blockdev --rereadpt "$DEVICE" 2>&1)"
+    retval=$?
 
     # Wait a sec for things to settle
     sleep 1
 
-    if [ -z "$result" ]; then
+    # If blockdev returned success, we're done
+    if [ $retval -eq 0 ]; then
       break;
     fi
   done
