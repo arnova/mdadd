@@ -837,3 +837,5 @@ fi
 create_swaps "$TARGET"
 
 echo "* All done"
+echo ""
+
