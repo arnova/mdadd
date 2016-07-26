@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.01"
+MY_VERSION="2.02-DEVEL"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: May 24, 2016
+# Last update: July 26, 2016
 # (C) Copyright 2005-2016 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -42,6 +42,7 @@ show_help()
   echo "--force        - Even proceed if target device does not appear empty" >&2
   echo "--noptupdate   - Do NOT update the partition table on the target device (EXPERT!)" >&2
   echo "--nobootupdate - Do NOT update the boot-loader (track0) on the target device (EXPERT!)" >&2
+  echo "--nomdadd      - Do NOT add any devices to the existing MDs, only update partition-table/bootloader (EXPERT!)" >&2
   echo "" >&2
 }
 
@@ -686,7 +687,7 @@ copy_partition_table()
 
 
 # Copy/build all md devices that exist on the source drive:
-create_md_devices()
+add_devices_to_mds()
 {
   IFS=$EOL
   for LINE in $(cat /tmp/mdadm-detail-scan); do
@@ -762,6 +763,7 @@ echo "--------------------------------"
 FORCE=0
 NO_PT_UPDATE=0
 NO_BOOT_UPDATE=0
+NO_MD_ADD=0
 SOURCE=""
 TARGET=""
 
@@ -775,6 +777,7 @@ for arg in $*; do
                                  --force|-force|-f) FORCE=1;;
                       --noptupdate|--nopt|--nopart) NO_PT_UPDATE=1;;
                            --nobootupdate|--noboot) NO_BOOT_UPDATE=1;;
+                                         --nomdadd) NO_MD_ADD=1;;
                                          --help|-h) show_help;
                                                     exit 0
                                                    ;;
@@ -810,23 +813,25 @@ fi
 # Update (copy) partitions from source to target
 copy_partition_table;
 
-# Create actual md devices on target
-create_md_devices;
-
-# Wait a bit for mdstat to settle
-sleep 3
-
-echo "* Showing current /proc/mdstat (you may need to update your mdadm.conf (manually)..."
-cat /proc/mdstat
-echo ""
-
-if [ $NO_ADD -eq 1 ]; then
-  printf "\033[40m\033[1;31mWARNING: No mdadm --add actions were performed, please investigate!\n\033[0m" >&2
-fi
-
 # Copy GPT (GRUB) boot loader to target disk (if any)
 if [ $NO_BOOT_UPDATE -ne 1 -a $GPT_ENABLE -eq 1 ]; then
   copy_gpt_boot;
+fi
+
+# Create actual md devices on target
+if [ $NO_MD_ADD -ne 1 ]; then
+  add_devices_to_mds;
+
+  # Wait a bit for mdstat to settle
+  sleep 3
+
+  echo "* Showing current /proc/mdstat (you may need to update your mdadm.conf (manually)..."
+  cat /proc/mdstat
+  echo ""
+
+  if [ $NO_ADD -eq 1 ]; then
+    printf "\033[40m\033[1;31mWARNING: No mdadm --add actions were performed, please investigate!\n\033[0m" >&2
+  fi
 fi
 
 if [ $BOOT -eq 1 ]; then
@@ -838,4 +843,3 @@ create_swaps "$TARGET"
 
 echo "* All done"
 echo ""
-
