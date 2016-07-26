@@ -586,7 +586,7 @@ zap_mbr_and_partition_table()
 {
   # Clear GPT entries before zapping them else sgdisk (below) may complain
   if check_command sgdisk; then
-    sgdisk --clear "$TARGET" >/dev/null 2>&1
+#    sgdisk --clear "$TARGET" >/dev/null 2>&1
 
     # Completely zap GPT, MBR and legacy partition data
     sgdisk --zap-all "$TARGET" >/dev/null 2>&1
@@ -597,9 +597,9 @@ zap_mbr_and_partition_table()
 copy_track0()
 {
   echo "* Copying track0(containing MBR) from $SOURCE to $TARGET:"
-  # For clean or empty disks always try to use a full 1MiB of DD_SOURCE else GRUB2 may not work.
-  # This may overwrite the partition table and the beginning of the first partition but we update the pt anyway
-  dd if="$SOURCE" of="$TARGET" bs=512 count=2048
+  # For clean or empty disks always try to use a full 1MiB of DD_SOURCE else GRUB2 with a (legacy) DOS partition doesn't work
+  # We don't overwrite the DOS partition table, in case the user specified --noptupdate
+  dd if="$SOURCE" of="$TARGET" bs=446 count=1 && dd if="$SOURCE" of="$TARGET" bs=512 seek=1 skip=1 count=62
   retval=$?
 
   if [ $retval -ne 0 ]; then
@@ -636,36 +636,23 @@ copy_partition_table()
 {
   # Handle GPT partition table
   if [ $GPT_ENABLE -eq 1 ]; then
-    if [ $NO_PT_UPDATE -eq 1 ]; then
-      echo "* Keeping GPT partition table on target $TARGET..."
-      return 0 # Nothing to do
+    echo "* Copying GPT partition table from source $SOURCE to target $TARGET..."
+    result="$(sgdisk_safe --load-backup="/tmp/sgdisk.source" "$TARGET" 2>&1)"
+    retval=$?
+    if [ $retval -ne 0 ]; then
+      echo "$result" >&2
+      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while copying the GPT partition table!\n\n\033[0m" >&2
+      exit 9
     else
-      echo "* Copying GPT partition table from source $SOURCE to target $TARGET..."
-      result="$(sgdisk_safe --load-backup="/tmp/sgdisk.source" "$TARGET" 2>&1)"
-      retval=$?
-      if [ $retval -ne 0 ]; then
-        echo "$result" >&2
-        printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while copying the GPT partition table!\n\n\033[0m" >&2
-        exit 9
-      else
-        echo "$result"
-      fi
+      echo "$result"
     fi
 
     # Randomize GUIDS, since we don't want both disks to use the same ones
     echo "* Randomizing all GUIDs on target $TARGET..."
     sgdisk_safe --randomize-guids "$TARGET" >/dev/null
   else
-    # Handle DOS partition table
-    if [ $NO_PT_UPDATE -eq 1 ]; then
-      echo "* Preserving DOS partition table on target $TARGET..."
-      SFDISK_SOURCE="/tmp/sfdisk.target"
-    else
-      echo "* Copying DOS partition table from source $SOURCE to target $TARGET..."
-      SFDISK_SOURCE="/tmp/sfdisk.source"
-    fi
-
-    result="$(cat "$SFDISK_SOURCE" |sfdisk --no-reread --force "$TARGET" 2>&1)"
+    echo "* Copying DOS partition table from source $SOURCE to target $TARGET..."
+    result="$(cat "/tmp/sfdisk.source" |sfdisk --no-reread --force "$TARGET" 2>&1)"
     retval=$?
 
     # Can't just check sfdisk's return code as it is not reliable
@@ -808,10 +795,16 @@ zap_mbr_and_partition_table;
 # Copy legacy MBR/track0 boot loader to target disk (if any)
 if [ $NO_BOOT_UPDATE -ne 1 ]; then
   copy_track0;
+else
+  echo "* NOTE: Not updating boot loader target $TARGET..."
 fi
 
 # Update (copy) partitions from source to target
-copy_partition_table;
+if [ $NO_PT_UPDATE -ne 1 ]; then
+  copy_partition_table;
+else
+  echo "* NOTE: Not updating partition table on target $TARGET..."
+fi
 
 # Copy GPT (GRUB) boot loader to target disk (if any)
 if [ $NO_BOOT_UPDATE -ne 1 -a $GPT_ENABLE -eq 1 ]; then
