@@ -789,8 +789,10 @@ sanity_check;
 
 disable_swaps;
 
-# Zap MBR and partition table
-zap_mbr_and_partition_table;
+if [ $NO_PT_UPDATE -ne 1 -a $NO_BOOT_UPDATE -ne 1 ]; then
+  # Zap MBR and partition table
+  zap_mbr_and_partition_table;
+fi
 
 # Copy legacy MBR/track0 boot loader to target disk (if any)
 if [ $NO_BOOT_UPDATE -ne 1 ]; then
