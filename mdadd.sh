@@ -1,6 +1,6 @@
 #!/bin/sh
 
-MY_VERSION="2.02-DEVEL"
+MY_VERSION="2.02"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
 # Last update: July 26, 2016
@@ -595,10 +595,18 @@ zap_mbr_and_partition_table()
 copy_track0()
 {
   echo "* Copying track0(containing MBR) from $SOURCE to $TARGET:"
-  # For clean or empty disks always try to use a full 1MiB of DD_SOURCE else GRUB2 with a (legacy) DOS partition doesn't work
-  # We don't overwrite the DOS partition table, in case the user specified --noptupdate
-  dd if="$SOURCE" of="$TARGET" bs=446 count=1 && dd if="$SOURCE" of="$TARGET" bs=512 seek=1 skip=1 count=62
-  retval=$?
+  
+  if [ $GPT_ENABLE -eq 0 ]; then
+    # Always try to use a full 1MiB of DD_SOURCE else GRUB2 with a (legacy) DOS partition doesn't work
+    # NOTE: We don't overwrite the DOS partition table, in case the user specified --noptupdate
+    dd if="$SOURCE" of="$TARGET" bs=446 count=1 && dd if="$SOURCE" of="$TARGET" bs=512 seek=1 skip=1 count=62
+    retval=$?
+  else
+    # For GPT we don't overwrite the partition table, in case the user specified --noptupdate and to avoid
+    # a (falsely) detected corrupt GPT header
+    dd if="$SOURCE" of="$TARGET" bs=446 count=1
+    retval=$?
+  fi
 
   if [ $retval -ne 0 ]; then
     printf "\033[40m\033[1;31mERROR: Track0(MBR) update from $SOURCE to /dev/$TARGET_NODEV failed($retval). Quitting...\n\n\033[0m" >&2
@@ -635,7 +643,7 @@ copy_partition_table()
   # Handle GPT partition table
   if [ $GPT_ENABLE -eq 1 ]; then
     echo "* Copying GPT partition table from source $SOURCE to target $TARGET..."
-    result="$(sgdisk_safe --load-backup="/tmp/sgdisk.source" "$TARGET" 2>&1)"
+    result="$(sgdisk_safe --replicate="$TARGET" "$SOURCE" 2>&1)"
     retval=$?
     if [ $retval -ne 0 ]; then
       echo "$result" >&2
