@@ -414,7 +414,7 @@ sanity_check()
 
   if [ -n "$(get_partitions ${TARGET_NODEV})" ] && [ $FORCE -ne 1 ]; then
     get_partitions_with_size_type /dev/$TARGET_NODEV 
-    printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV already contains partitions (Use --force to override):\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV already contains partitions (Use --force to override)!\n\033[0m" >&2
     echo ""
     REPORT_FORCE=1
   fi
