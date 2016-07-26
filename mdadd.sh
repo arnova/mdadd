@@ -1,6 +1,6 @@
 #!/bin/sh
 
-MY_VERSION="2.02"
+MY_VERSION="2.02a"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
 # Last update: July 26, 2016
@@ -137,18 +137,13 @@ get_disk_partitions()
 {
   local DISK_NODEV=`echo "$1" |sed s,'^/dev/',,`
 
-  local SFDISK_OUTPUT="$(sfdisk -d "/dev/$DISK_NODEV" 2>/dev/null |grep '^/dev/')"
-  if echo "$SFDISK_OUTPUT" |grep -q -E -i '^/dev/.*[[:blank:]]Id=ee' && check_command sgdisk; then
-    local DEV_PREFIX="/dev/$DISK_NODEV"
-    # FIXME: Not sure if this is correct:
-    if echo "$DEV_PREFIX" |grep -q '[0-9]$'; then
-      DEV_PREFIX="${DEV_PREFIX}p"
-    fi
-
-    sgdisk -p "/dev/$DISK_NODEV" 2>/dev/null |grep -E "^[[:blank:]]+[0-9]+" |awk '{ print DISK$1 }' DISK=$DEV_PREFIX
-  else
-    echo "$SFDISK_OUTPUT" |grep -E -v -i '[[:blank:]]Id= 0' |awk '{ print $1 }'
+  local DEV_PREFIX="/dev/$DISK_NODEV"
+  # FIXME: Not sure if this is correct:
+  if echo "$DEV_PREFIX" |grep -q '[0-9]$'; then
+    DEV_PREFIX="${DEV_PREFIX}p"
   fi
+
+  sgdisk -p "/dev/$DISK_NODEV" 2>/dev/null |grep -E "^[[:blank:]]+[0-9]+" |awk '{ print DISK$1 }' DISK=$DEV_PREFIX
 }
 
 
@@ -341,6 +336,9 @@ sanity_check()
 
   check_command_error mdadm
   check_command_error sfdisk
+  check_command_error fdisk
+  check_command_error sgdisk
+  check_command_error gdisk
   check_command_error dd
   check_command_error awk
   check_command_error grep
@@ -461,11 +459,7 @@ sanity_check()
   fi
 
   # GPT found on source?:
-  if grep -q -E -i '^/dev/.*[[:blank:]]Id=ee' "/tmp/sfdisk.source"; then
-    # Make sure binaries are available
-    check_command_error sgdisk
-    check_command_error gdisk
-
+  if ! gdisk -l "$SOURCE" |grep -q 'GPT: not present'; then
     # Flag GPT use for the rest of the program:
     GPT_ENABLE=1
 
@@ -484,7 +478,7 @@ sanity_check()
     fi
   fi
 
-  if grep -q -E -i '^/dev/.*[[:blank:]]Id=ee' "/tmp/sfdisk.target" && check_command sgdisk; then
+  if ! gdisk -l "$TARGET" |grep -q 'GPT: not present'; then
     echo "* Inspecting GPT partition table of target device $TARGET..."
     if [ -e "/tmp/sgdisk.target" ]; then
       if ! mv "/tmp/sgdisk.target" "/tmp/sgdisk.target.bak"; then
@@ -538,34 +532,15 @@ create_swaps()
 {
   local DEVICE="$1"
 
-  if [ $GPT_ENABLE -eq 1 ]; then
-    # GPT partition table found
-    SGDISK_OUTPUT="$(sgdisk -p "$DEVICE" 2>/dev/null)"
-
-    if ! echo "$SGDISK_OUTPUT" |grep -q -i -e "GPT: not present"; then
-      IFS=$EOL
-      echo "$SGDISK_OUTPUT" |grep -E -i "[[:blank:]]8200[[:blank:]]+Linux swap" |while read LINE; do
-        NUM="$(echo "$LINE" |awk '{ print $1 }')"
-        PART="$(add_partition_number "$DEVICE" "$NUM")"
-        echo "* Creating swap on $PART (don't forget to enable in /etc/fstab!)..."
-        if ! mkswap "$PART"; then
-          printf "\033[40m\033[1;31mWARNING: mkswap failed for $PART\n\033[0m" >&2
-        fi
-      done
+  IFS=$EOL
+  sgdisk -p "$DEVICE" 2>/dev/null |grep -E -i "[[:blank:]]8200[[:blank:]]+Linux swap" |while read LINE; do
+    NUM="$(echo "$LINE" |awk '{ print $1 }')"
+    PART="$(add_partition_number "$DEVICE" "$NUM")"
+    echo "* Creating swap on $PART (don't forget to enable in /etc/fstab!)..."
+    if ! mkswap "$PART"; then
+      printf "\033[40m\033[1;31mWARNING: mkswap failed for $PART\n\033[0m" >&2
     fi
-  else
-    # MBR/DOS Partitions:
-    SFDISK_OUTPUT="$(sfdisk -d "$DEVICE" 2>/dev/null)"
-
-    IFS=$EOL
-    echo "$SFDISK_OUTPUT" |grep -i "id=82$" |while read LINE; do
-      PART="$(echo "$LINE" |awk '{ print $1 }')"
-      echo "* Creating swap on $PART (don't forget to enable in /etc/fstab!)..."
-      if ! mkswap "$PART"; then
-        printf "\033[40m\033[1;31mWARNING: mkswap failed for $PART\n\033[0m" >&2
-      fi
-    done
-  fi
+  done
 }
 
 
@@ -582,13 +557,11 @@ disable_swaps()
 
 zap_mbr_and_partition_table()
 {
-  # Clear GPT entries before zapping them else sgdisk (below) may complain
-  if check_command sgdisk; then
-#    sgdisk --clear "$TARGET" >/dev/null 2>&1
+  # Completely zap GPT, MBR and legacy partition data
+  sgdisk --zap-all "$TARGET" >/dev/null 2>&1
 
-    # Completely zap GPT, MBR and legacy partition data
-    sgdisk --zap-all "$TARGET" >/dev/null 2>&1
-  fi
+  # Clear partition table
+#  sgdisk --clear "$TARGET" >/dev/null 2>&1
 }
 
 
