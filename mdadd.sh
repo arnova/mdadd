@@ -29,8 +29,6 @@ EOL='
 ##################
 # Define globals #
 ##################
-BOOT=0
-NO_ADD=1
 GPT_ENABLE=0
 
 show_help()
@@ -815,6 +813,7 @@ fi
 
 # Create actual md devices on target
 if [ $NO_MD_ADD -ne 1 ]; then
+  NO_ADD=1
   add_devices_to_mds;
 
   # Wait a bit for mdstat to settle
@@ -827,10 +826,6 @@ if [ $NO_MD_ADD -ne 1 ]; then
   if [ $NO_ADD -eq 1 ]; then
     printf "\033[40m\033[1;31mWARNING: No mdadm --add actions were performed, please investigate!\n\033[0m" >&2
   fi
-fi
-
-if [ $BOOT -eq 1 ]; then
-  printf "\033[40m\033[1;31mNOTE: Boot and/or root partition detected.\n      Please verify your bootloader & active partitions!\n\033[0m"
 fi
 
 # run mkswap on swap partitions
