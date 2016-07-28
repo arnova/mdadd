@@ -281,9 +281,9 @@ partprobe()
 gpt_detect()
 {
   if gdisk -l "$1" |grep -q 'GPT: not present'; then
-    return 0
+    return 1 # GPT not found
   else
-    return 1
+    return 0 # GPT found
   fi
 }
 
