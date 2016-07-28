@@ -567,14 +567,14 @@ zap_mbr_and_partition_table()
 
 copy_track0()
 {
-  echo "* Copying track0(containing MBR) from $SOURCE to $TARGET:"
-  
   if [ $GPT_ENABLE -eq 0 ]; then
+    echo "* Copying track0(containing MBR) from $SOURCE to $TARGET:"
     # Always try to use a full 1MiB of DD_SOURCE else GRUB2 with a (legacy) DOS partition doesn't work
     # NOTE: We don't overwrite the DOS partition table, in case the user specified --noptupdate
     dd if="$SOURCE" of="$TARGET" bs=446 count=1 && dd if="$SOURCE" of="$TARGET" bs=512 seek=1 skip=1 count=62
     retval=$?
   else
+    echo "* Copying GPT protective MBR from $SOURCE to $TARGET:"
     # For GPT we don't overwrite the partition table, in case the user specified --noptupdate and to avoid
     # a (falsely) detected corrupt GPT header
     dd if="$SOURCE" of="$TARGET" bs=446 count=1
