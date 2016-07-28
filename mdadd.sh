@@ -132,7 +132,7 @@ get_partitions_with_size_type()
 }
 
 
-# Get partitions directly from disk using sfdisk/gdisk
+# Get partitions directly from disk using sgdisk
 get_disk_partitions()
 {
   local DISK_NODEV=`echo "$1" |sed s,'^/dev/',,`
@@ -274,6 +274,17 @@ partprobe()
   fi
 
   return 0
+}
+
+
+# Function to detect whether a device has a GPT partition table
+gpt_detect()
+{
+  if gdisk -l "$1" |grep -q 'GPT: not present'; then
+    return 0
+  else
+    return 1
+  fi
 }
 
 
@@ -459,7 +470,7 @@ sanity_check()
   fi
 
   # GPT found on source?:
-  if ! gdisk -l "$SOURCE" |grep -q 'GPT: not present'; then
+  if gpt_detect "$SOURCE"; then
     # Flag GPT use for the rest of the program:
     GPT_ENABLE=1
 
@@ -478,7 +489,7 @@ sanity_check()
     fi
   fi
 
-  if ! gdisk -l "$TARGET" |grep -q 'GPT: not present'; then
+  if gpt_detect "$TARGET"; then
     echo "* Inspecting GPT partition table of target device $TARGET..."
     if [ -e "/tmp/sgdisk.target" ]; then
       if ! mv "/tmp/sgdisk.target" "/tmp/sgdisk.target.bak"; then
