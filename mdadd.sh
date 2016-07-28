@@ -694,27 +694,24 @@ add_devices_to_mds()
 }
 
 
-# Copy boot (eg. grub) partitions for GPT disks
-copy_gpt_boot()
+# Copy boot (eg. grub) partitions
+copy_boot_partitions()
 {
-  SGDISK_OUTPUT="$(sgdisk -p "$SOURCE" 2>/dev/null)"
-  if ! echo "$SGDISK_OUTPUT" |grep -q -i -e "GPT: not present"; then
-    IFS=$EOL
-    # Normally there will be one boot partition, but use a loop to allow this to be extended for other types
-    echo "$SGDISK_OUTPUT" |grep -E -i "[[:blank:]](EF00|EF02)[[:blank:]]" |while read LINE; do
-      NUM="$(echo "$LINE" |awk '{ print $1 }')"
-      SOURCE_PART="$(add_partition_number "$SOURCE" "$NUM")"
-      TARGET_PART="$(add_partition_number "$TARGET" "$NUM")"
+  IFS=$EOL
+  # Normally there will be one boot partition, but use a loop to allow this to be extended for other types
+  sgdisk -p "$SOURCE" 2>/dev/null |grep -E -i "[[:blank:]](EF00|EF02)[[:blank:]]" |while read LINE; do
+    NUM="$(echo "$LINE" |awk '{ print $1 }')"
+    SOURCE_PART="$(add_partition_number "$SOURCE" "$NUM")"
+    TARGET_PART="$(add_partition_number "$TARGET" "$NUM")"
 
-      echo "* Copy boot partition $SOURCE_PART to $TARGET_PART..."
-      dd if=$SOURCE_PART of=$TARGET_PART bs=1M
-      retval=$?
+    echo "* Copy boot partition $SOURCE_PART to $TARGET_PART..."
+    dd if=$SOURCE_PART of=$TARGET_PART bs=1M
+    retval=$?
 
-      if [ $retval -ne 0 ]; then
-        printf "\033[40m\033[1;31mERROR: GPT boot partition $SOURCE_PART failed to copy to $TARGET_PART($retval)!\n\n\033[0m" >&2
-      fi
-    done
-  fi
+    if [ $retval -ne 0 ]; then
+      printf "\033[40m\033[1;31mERROR: GPT boot partition $SOURCE_PART failed to copy to $TARGET_PART($retval)!\n\n\033[0m" >&2
+    fi
+  done
 }
 
 
@@ -787,9 +784,9 @@ else
   echo "* NOTE: Not updating partition table on target $TARGET..."
 fi
 
-# Copy GPT (GRUB) boot loader to target disk (if any)
-if [ $NO_BOOT_UPDATE -ne 1 -a $GPT_ENABLE -eq 1 ]; then
-  copy_gpt_boot;
+# Copy (GRUB) boot partitions to target disk (if any)
+if [ $NO_BOOT_UPDATE -ne 1 ]; then
+  copy_boot_partitions;
 fi
 
 # Create actual md devices on target
