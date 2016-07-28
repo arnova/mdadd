@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.02a"
+MY_VERSION="2.02b"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: July 26, 2016
+# Last update: July 28, 2016
 # (C) Copyright 2005-2016 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -481,7 +481,7 @@ sanity_check()
         exit 11
       fi
     fi
-    sgdisk_safe --backup="/tmp/sgdisk.source" "$SOURCE"
+    sgdisk_safe --backup="/tmp/sgdisk.source" "$SOURCE" >/dev/null
     retval=$?
     if [ $retval -ne 0 ]; then
       printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while reading the partition table on $SOURCE!\n\033[0m" >&2
@@ -497,7 +497,7 @@ sanity_check()
         exit 11
       fi
     fi
-    sgdisk_safe --backup="/tmp/sgdisk.target" "$TARGET" 2>/dev/null
+    sgdisk_safe --backup="/tmp/sgdisk.target" "$TARGET" >/dev/null 2>&1
     retval=$?
     if [ $retval -ne 0 ]; then
       printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while reading the partition table on $TARGET!\n\033[0m" >&2
