@@ -631,7 +631,7 @@ copy_partition_table()
     sgdisk_safe --randomize-guids "$TARGET" >/dev/null
   else
     echo "* Copying DOS partition table from source $SOURCE to target $TARGET..."
-    result="$(cat "/tmp/sfdisk.source" |sfdisk --no-reread --force "$TARGET" 2>&1)"
+    result="$(sfdisk -d "$SOURCE" |sfdisk --no-reread --force "$TARGET" 2>&1)"
     retval=$?
 
     # Can't just check sfdisk's return code as it is not reliable
