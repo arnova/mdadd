@@ -441,7 +441,7 @@ sanity_check()
     exit 9
   fi
 
-  echo "* Inspecting DOS partition table of source device $SOURCE..."
+  echo "* Checking DOS partition table (if any) of source device $SOURCE..."
   if [ -e "/tmp/sfdisk.source" ]; then
     if ! mv "/tmp/sfdisk.source" "/tmp/sfdisk.source.bak"; then
       printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sfdisk.source! Quitting...\n\n\033[0m" >&2
@@ -455,7 +455,7 @@ sanity_check()
     exit 11
   fi
 
-  echo "* Inspecting DOS partition table of target device $TARGET..."
+  echo "* Checking DOS partition table (if any) of target device $TARGET..."
   if [ -e "/tmp/sfdisk.target" ]; then
     if ! mv "/tmp/sfdisk.target" "/tmp/sfdisk.target.bak"; then
       printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sfdisk.target! Quitting...\n\n\033[0m" >&2
@@ -474,7 +474,7 @@ sanity_check()
     # Flag GPT use for the rest of the program:
     GPT_ENABLE=1
 
-    echo "* Inspecting GPT partition table of source device $TARGET..."
+    echo "* Checking GPT partition table (if any) of source device $TARGET..."
     if [ -e "/tmp/sgdisk.source" ]; then
       if ! mv "/tmp/sgdisk.source" "/tmp/sgdisk.source.bak"; then
         printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.source! Quitting...\n\n\033[0m" >&2
@@ -490,7 +490,7 @@ sanity_check()
   fi
 
   if gpt_detect "$TARGET"; then
-    echo "* Inspecting GPT partition table of target device $TARGET..."
+    echo "* Checking GPT partition table (if any) of target device $TARGET..."
     if [ -e "/tmp/sgdisk.target" ]; then
       if ! mv "/tmp/sgdisk.target" "/tmp/sgdisk.target.bak"; then
         printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.target! Quitting...\n\n\033[0m" >&2
