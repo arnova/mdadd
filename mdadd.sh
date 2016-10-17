@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.02b"
+MY_VERSION="2.02c"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: July 28, 2016
+# Last update: October 17, 2016
 # (C) Copyright 2005-2016 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -83,6 +83,55 @@ human_size()
       }
     }
   }'
+}
+
+
+# Safe (fixed) version of sgdisk since it doesn't always return non-zero when an error occurs
+sgdisk_safe()
+{
+  local IFS=' '
+
+  local result="$(sgdisk $@ 2>&1)"
+  local retval=$?
+
+  if [ $retval -ne 0 ]; then
+    echo "$result" >&2
+    return $retval
+  fi
+
+  if ! echo "$result" |grep -i -q "operation has completed successfully"; then
+    echo "$result" >&2
+    return 8 # Seems to be the most appropriate return code for this
+  fi
+
+  echo "$result"
+  return 0
+}
+
+
+# Safe (fixed) version of sfdisk since it doesn't always return non-zero when an error occurs
+sfdisk_safe()
+{
+  local IFS=' '
+
+  local result="$(sfdisk $@ 2>&1)"
+  local retval=$?
+
+  # Can't just check sfdisk's return code as it is not reliable
+  local parse_false="$(echo "$result" |grep -i -e "^Warning.*extends past end of disk" -e "^Warning.*exceeds max")"
+  local parse_true="$(echo "$result" |grep -i -e "^New situation:")"
+  if [ -n "$parse_false" -o -z "$parse_true" ]; then
+    echo "$result" >&2
+
+    if [ $retval -eq 0 ]; then
+      retval=8 # Don't show 0, which may confuse user. 8 seems to be the most appropriate return code for this
+    fi
+
+    return $retval
+  fi
+
+  echo "$result"
+  return 0
 }
 
 
@@ -599,29 +648,6 @@ copy_track0()
 }
 
 
-# Safe (fixed) version of sgdisk since it doesn't always return non-zero when an error occurs
-sgdisk_safe()
-{
-  local result=""
-  local IFS=' '
-  result="$(sgdisk $@ 2>&1)"
-  local retval=$?
-
-  if [ $retval -ne 0 ]; then
-    echo "$result" >&2
-    return $retval
-  fi
-
-  if ! echo "$result" |grep -i -q "operation has completed successfully"; then
-    echo "$result" >&2
-    return 8 # Seems to be the most appropriate return code for this
-  fi
-
-  echo "$result"
-  return 0
-}
-
-
 copy_partition_table()
 {
   # Handle GPT partition table
@@ -642,11 +668,10 @@ copy_partition_table()
     sgdisk_safe --randomize-guids "$TARGET" >/dev/null
   else
     echo "* Copying DOS partition table from source $SOURCE to target $TARGET..."
-    result="$(sfdisk -d "$SOURCE" |sfdisk --no-reread --force "$TARGET" 2>&1)"
+    result="$(sfdisk -d "$SOURCE" |sfdisk_safe --no-reread --force "$TARGET" 2>&1)"
     retval=$?
 
-    # Can't just check sfdisk's return code as it is not reliable
-    if ! echo "$result" |grep -i -q "^Successfully wrote" || echo "$result" |grep -i -q -e "^Warning.*extends past end of disk" -e "^Warning.*exceeds max"; then
+    if [ $retval -ne 0 ]; then
       echo "$result" >&2
       printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while writing the DOS partition table!\n\n\033[0m" >&2
       exit 9
