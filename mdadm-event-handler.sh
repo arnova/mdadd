@@ -25,7 +25,7 @@
 
 CONFIG="/etc/mdadm/mdadm.conf"
 REPORT_MISMATCH=1
-IGNORE_EVENTS="NewArray"
+IGNORE_EVENTS="NewArray DeviceDisappeared"
 
 # Overrule mailto address from the mdadm.conf file?:
 #MAILADDR="root"
@@ -113,7 +113,7 @@ fi
 # Sleep 1 second just to make sure things are in a 'stable state'
 sleep 1
 
-if ! echo "$IGNORE_EVENTS" |grep -q -E "(^|,| )$1($|,| )"; then
+if ! echo "$IGNORE_EVENTS" |grep -q -i -E "(^|,| )$1($|,| )"; then
   # Call the parser and send it to the configured address
   parse_event $* |mail -s "RAID(MD) event on $(hostname)" "$MAILADDR"
 fi
