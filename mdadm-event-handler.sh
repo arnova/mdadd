@@ -3,8 +3,8 @@
 # MDADM Event Handler - Generate mails when MD events occur
 # Drop a line like "PROGRAM /root/bin/sys/mdadm-event-handler.sh" in your mdadm.conf to use it
 #
-# Last update: May 6, 2013
-# (C) Copyright 2006-2013 by Arno van Amersfoort
+# Last update: November 1, 2016
+# (C) Copyright 2006-2016 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -24,8 +24,8 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 CONFIG="/etc/mdadm/mdadm.conf"
-REPORT_NEW_ARRAYS=1
 REPORT_MISMATCH=1
+IGNORE_EVENTS="NewArray"
 
 # Overrule mailto address from the mdadm.conf file?:
 #MAILADDR="root"
@@ -113,7 +113,7 @@ fi
 # Sleep 1 second just to make sure things are in a 'stable state'
 sleep 1
 
-if [ $REPORT_NEW_ARRAYS -eq 1 -o "$1" != "NewArray" ]; then
+if ! echo "$IGNORE_EVENTS" |grep -q -E "(^|,| )$1($|,| )"; then
   # Call the parser and send it to the configured address
   parse_event $* |mail -s "RAID(MD) event on $(hostname)" "$MAILADDR"
 fi
