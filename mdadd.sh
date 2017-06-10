@@ -313,7 +313,7 @@ partprobe()
 
     # If blockdev returned success, we're done
     if [ $retval -eq 0 -a -z "$result" ]; then
-      break;
+      break
     fi
   done
 
@@ -409,7 +409,7 @@ sanity_check()
 
   if [ -z "$SOURCE" -o -z "$TARGET" ]; then
     echo "ERROR: Bad or missing argument(s)" >&2
-    show_help;
+    show_help
     exit 4
   fi
 
@@ -680,7 +680,7 @@ copy_partition_table()
 
   # Wait for kernel to reread partition table
   if partprobe "$TARGET" && part_check "$TARGET"; then
-    return;
+    return
   else
     printf "\033[40m\033[1;31mERROR: (Re)reading the partition table failed!\n\n\033[0m" >&2
     exit 9
@@ -703,7 +703,7 @@ add_devices_to_mds()
       for item in `echo "$LINE" |sed -e "s:.*devices=::"`; do
         if echo "$item" |grep -E -q -x "${SOURCE}p?[0-9]+"; then
           PARTITION_NR=`echo "$item" |sed s:"$SOURCE"::`
-          break;
+          break
         fi
       done
 
@@ -754,9 +754,8 @@ copy_boot_partitions()
 #######################
 # Program entry point #
 #######################
-echo "MDadd for SoftRAID-MDADM v$MY_VERSION"
-echo "Written by Arno van Amersfoort"
-echo "--------------------------------"
+echo "mdadd v$MY_VERSION - (C) Copyright 2005-2016 by Arno van Amersfoort"
+echo ""
 
 # Set environment variables to default
 FORCE=0
@@ -779,11 +778,11 @@ for arg in $*; do
                                          --nomdadd) NO_MD_ADD=1;;
                                          --help|-h) show_help;
                                                     exit 0
-                                                   ;;
+                                                    ;;
                                                 -*) echo "ERROR: Bad argument \"$arg\"" >&2
                                                     show_help;
                                                     exit 1;
-                                                   ;;
+                                                    ;;
                                                  *) if [ -z "$SOURCE" ]; then
                                                       SOURCE="$arg"
                                                     elif [ -z "$TARGET" ]; then
@@ -797,38 +796,38 @@ for arg in $*; do
 done
 
 # Make sure everything is sane:
-sanity_check;
+sanity_check
 
-disable_swaps;
+disable_swaps
 
 if [ $NO_PT_UPDATE -ne 1 -a $NO_BOOT_UPDATE -ne 1 ]; then
   # Zap MBR and partition table
-  zap_mbr_and_partition_table;
+  zap_mbr_and_partition_table
 fi
 
 # Copy legacy MBR/track0 boot loader to target disk (if any)
 if [ $NO_BOOT_UPDATE -ne 1 ]; then
-  copy_track0;
+  copy_track0
 else
   echo "* NOTE: Not updating boot loader target $TARGET..."
 fi
 
 # Update (copy) partitions from source to target
 if [ $NO_PT_UPDATE -ne 1 ]; then
-  copy_partition_table;
+  copy_partition_table
 else
   echo "* NOTE: Not updating partition table on target $TARGET..."
 fi
 
 # Copy (GRUB) boot partitions to target disk (if any)
 if [ $NO_BOOT_UPDATE -ne 1 ]; then
-  copy_boot_partitions;
+  copy_boot_partitions
 fi
 
 # Create actual md devices on target
 if [ $NO_MD_ADD -ne 1 ]; then
   NO_ADD=1
-  add_devices_to_mds;
+  add_devices_to_mds
 
   # Wait a bit for mdstat to settle
   sleep 3
@@ -847,3 +846,4 @@ create_swaps "$TARGET"
 
 echo "* All done"
 echo ""
+
