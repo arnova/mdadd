@@ -3,7 +3,7 @@
 # MDADM Event Handler - Generate mails when MD events occur
 # Drop a line like "PROGRAM /root/bin/sys/mdadm-event-handler.sh" in your mdadm.conf to use it
 #
-# Last update: Mar 5, 2017
+# Last update: Jun 13, 2017
 # (C) Copyright 2006-2017 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -115,7 +115,7 @@ sleep 1
 
 if ! echo "$IGNORE_EVENTS" |grep -q -i -E "(^|,| )$1($|,| )"; then
   # Call the parser and send it to the configured address
-  parse_event $* |mail -s "RAID(MD) $1 event on $(hostname)" "$MAILADDR"
+  parse_event $* |mail -s "$(hostname) $2 event: $1" "$MAILADDR"
 fi
 
 exit 0
