@@ -1,10 +1,10 @@
 #!/bin/sh
 
-MY_VERSION="2.02c"
+MY_VERSION="2.02d"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: October 17, 2016
-# (C) Copyright 2005-2016 by Arno van Amersfoort
+# Last update: June 22, 2017
+# (C) Copyright 2005-2017 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -500,12 +500,13 @@ sanity_check()
   sfdisk -d "$SOURCE" >"/tmp/sfdisk.source"
   retval=$?
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while reading the partition table on $SOURCE!\n\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while dumping the partition table on $SOURCE!\n\n\033[0m" >&2
     exit 11
   fi
 
   echo "* Checking DOS partition table (if any) of target device $TARGET..."
   if [ -e "/tmp/sfdisk.target" ]; then
+    rm -f "/tmp/sfdisk.target.bak" >/dev/null 2>&1
     if ! mv "/tmp/sfdisk.target" "/tmp/sfdisk.target.bak"; then
       printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sfdisk.target! Quitting...\n\n\033[0m" >&2
       exit 11
@@ -514,8 +515,7 @@ sanity_check()
   sfdisk -d "$TARGET" >"/tmp/sfdisk.target" 2>/dev/null
   retval=$?
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while reading the partition table on $TARGET!\n\033[0m" >&2
-    exit 11
+    printf "NOTE: sfdisk returned an error($retval) while dumping the partition table on $TARGET!\n" >&2
   fi
 
   # GPT found on source?:
@@ -533,7 +533,7 @@ sanity_check()
     sgdisk_safe --backup="/tmp/sgdisk.source" "$SOURCE" >/dev/null
     retval=$?
     if [ $retval -ne 0 ]; then
-      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while reading the partition table on $SOURCE!\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while dumping the partition table on $SOURCE!\n\033[0m" >&2
       exit 11
     fi
   fi
@@ -541,6 +541,7 @@ sanity_check()
   if gpt_detect "$TARGET"; then
     echo "* Checking GPT partition table (if any) of target device $TARGET..."
     if [ -e "/tmp/sgdisk.target" ]; then
+      rm -f "/tmp/sgdisk.target.bak" >dev/null 2>&1
       if ! mv "/tmp/sgdisk.target" "/tmp/sgdisk.target.bak"; then
         printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.target! Quitting...\n\n\033[0m" >&2
         exit 11
@@ -549,8 +550,7 @@ sanity_check()
     sgdisk_safe --backup="/tmp/sgdisk.target" "$TARGET" >/dev/null 2>&1
     retval=$?
     if [ $retval -ne 0 ]; then
-      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while reading the partition table on $TARGET!\n\033[0m" >&2
-      exit 11
+      printf "NOTE: sgdisk returned an error($retval) while dumping the partition table on $TARGET!\n" >&2
     fi
   fi
 
@@ -776,12 +776,12 @@ for arg in $*; do
                       --noptupdate|--nopt|--nopart) NO_PT_UPDATE=1;;
                            --nobootupdate|--noboot) NO_BOOT_UPDATE=1;;
                                          --nomdadd) NO_MD_ADD=1;;
-                                         --help|-h) show_help;
+                                         --help|-h) show_help
                                                     exit 0
                                                     ;;
                                                 -*) echo "ERROR: Bad argument \"$arg\"" >&2
-                                                    show_help;
-                                                    exit 1;
+                                                    show_help
+                                                    exit 1
                                                     ;;
                                                  *) if [ -z "$SOURCE" ]; then
                                                       SOURCE="$arg"
@@ -789,9 +789,10 @@ for arg in $*; do
                                                       TARGET="$arg"
                                                     else
                                                       echo "ERROR: Bad command syntax with argument \"$arg\"" >&2
-                                                      show_help;
-                                                      exit 1;
+                                                      show_help
+                                                      exit 1
                                                     fi
+                                                    ;;
   esac
 done
 
@@ -846,4 +847,3 @@ create_swaps "$TARGET"
 
 echo "* All done"
 echo ""
-
