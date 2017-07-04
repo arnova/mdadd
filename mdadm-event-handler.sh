@@ -3,7 +3,7 @@
 # MDADM Event Handler - Generate mails when MD events occur
 # Drop a line like "PROGRAM /root/bin/sys/mdadm-event-handler.sh" in your mdadm.conf to use it
 #
-# Last update: Jun 13, 2017
+# Last update: Jul 4, 2017
 # (C) Copyright 2006-2017 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -33,24 +33,22 @@ IGNORE_EVENTS="NewArray DeviceDisappeared"
 parse_event()
 {
   echo "Host            : $(hostname)"
-  if [ -z "$1" ]; then
-    echo "Event           : Test message"
-  else
+  echo "Event           : $1"
+  if [ -n "$2" ]; then
     echo "MD Device       : $2"
-    echo "Event           : $1"
-    if [ -n "$3" ]; then
-      echo "Device Component: $3"
-    fi
+  fi
+  if [ -n "$3" ]; then
+    echo "Device Component: $3"
   fi
 
   echo ""
-  echo "/proc/mdstat dump:"
   FAIL=0
   DEGRADED=0
   MISMATCH=0
   unset IFS
   while read LINE; do
     printf "%s" "$LINE"
+    DEV=""
     if echo "$LINE" |grep -q ': active '; then
       DEV="$(echo "$LINE" |awk '{ print $1 }')"
 
@@ -78,8 +76,11 @@ parse_event()
         printf " (DEGRADED!!!)"
       fi
     fi
-
     echo ""
+
+    if [ -n "$DEV" ]; then
+      blkid -o full -s LABEL -s PTTYPE -s TYPE -s UUID "/dev/${DEV}" |cut -d' ' -f1 --complement
+    fi
   done < /proc/mdstat
 
   if [ $FAIL -gt 0 ]; then
@@ -102,9 +103,13 @@ parse_event()
 # main line:
 ############
 
+MD_EVENT="${1:-Test message}"
+MD_DEVICE="$2"
+MD_COMPONENT="$3"
+
 # Get MAILADDR from mdadm.conf config file, if not set already
 if [ -z "$MAILADDR" ] && [ -f "$CONFIG" ]; then
-  MAILADDR=`grep '^MAILADDR ' "$CONFIG" |cut -d' ' -f2`
+  MAILADDR="$(grep '^MAILADDR ' "$CONFIG" |cut -d' ' -f2)"
   if [ -z "$MAILADDR" ]; then
     MAILADDR="root"
   fi
@@ -115,7 +120,7 @@ sleep 1
 
 if ! echo "$IGNORE_EVENTS" |grep -q -i -E "(^|,| )$1($|,| )"; then
   # Call the parser and send it to the configured address
-  parse_event $* |mail -s "$(hostname) $2 event: $1" "$MAILADDR"
+  parse_event "$MD_EVENT" "$MD_DEVICE" "$MD_COMPONENT" |mail -s "$(hostname) $MD_DEVICE event: $MD_EVENT" "$MAILADDR"
 fi
 
 exit 0
