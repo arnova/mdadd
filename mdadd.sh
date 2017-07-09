@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.02d"
+MY_VERSION="2.02e"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: June 22, 2017
+# Last update: July 9, 2017
 # (C) Copyright 2005-2017 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -95,16 +95,16 @@ sgdisk_safe()
   local retval=$?
 
   if [ $retval -ne 0 ]; then
-    echo "$result" >&2
+    printf '%s\n' "$result" >&2
     return $retval
   fi
 
-  if ! echo "$result" |grep -i -q "operation has completed successfully"; then
-    echo "$result" >&2
+  if ! printf '%s\n' "$result" |grep -i -q "operation has completed successfully"; then
+    printf '%s\n' "$result" >&2
     return 8 # Seems to be the most appropriate return code for this
   fi
 
-  echo "$result"
+  printf '%s\n' "$result"
   return 0
 }
 
@@ -118,10 +118,10 @@ sfdisk_safe()
   local retval=$?
 
   # Can't just check sfdisk's return code as it is not reliable
-  local parse_false="$(echo "$result" |grep -i -e "^Warning.*extends past end of disk" -e "^Warning.*exceeds max")"
-  local parse_true="$(echo "$result" |grep -i -e "^New situation:")"
+  local parse_false="$(printf '%s\n' "$result" |grep -i -e "^Warning.*extends past end of disk" -e "^Warning.*exceeds max")"
+  local parse_true="$(printf '%s\n' "$result" |grep -i -e "^New situation:")"
   if [ -n "$parse_false" -o -z "$parse_true" ]; then
-    echo "$result" >&2
+    printf '%s\n' "$result" >&2
 
     if [ $retval -eq 0 ]; then
       retval=8 # Don't show 0, which may confuse user. 8 seems to be the most appropriate return code for this
@@ -130,7 +130,7 @@ sfdisk_safe()
     return $retval
   fi
 
-  echo "$result"
+  printf '%s\n' "$result"
   return 0
 }
 
@@ -318,7 +318,7 @@ partprobe()
   done
 
   if [ -n "$result" ]; then
-    printf "\033[40m\033[1;31m${result}\n\033[0m" >&2
+    printf "\033[40m\033[1;31m%s\n\033[0m" "$result" >&2
     return 1
   fi
 
@@ -656,11 +656,11 @@ copy_partition_table()
     result="$(sgdisk_safe --replicate="$TARGET" "$SOURCE" 2>&1)"
     retval=$?
     if [ $retval -ne 0 ]; then
-      echo "$result" >&2
+      printf '%s\n' "$result" >&2
       printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while copying the GPT partition table!\n\n\033[0m" >&2
       exit 9
     else
-      echo "$result"
+      printf '%s\n' "$result"
     fi
 
     # Randomize GUIDS, since we don't want both disks to use the same ones
@@ -672,7 +672,7 @@ copy_partition_table()
     retval=$?
 
     if [ $retval -ne 0 ]; then
-      echo "$result" >&2
+      printf '%s\n' "$result" >&2
       printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while writing the DOS partition table!\n\n\033[0m" >&2
       exit 9
     fi
