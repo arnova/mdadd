@@ -453,6 +453,13 @@ sanity_check()
     REPORT_FORCE=1
   fi
 
+  if grep -E -q "[[:blank:]]${TARGET_NODEV}p?[0-9]*\[" /proc/mdstat; then
+    printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV is already part of one or more md devices!\n\033[0m" >&2
+    cat /proc/mdstat
+    echo ""
+    exit 7
+  fi
+
   if [ $REPORT_FORCE -eq 1 ]; then
     exit 8
   fi
