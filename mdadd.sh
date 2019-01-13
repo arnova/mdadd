@@ -198,10 +198,12 @@ get_disk_partitions()
 
 show_block_device_info()
 {
-  local LSBLK="$(lsblk -P --nodeps -n -b -o vendor,model,rev,serial "$1" |sed -r -e s,' +',' ',g -e s,'SERIAL=','S/N=',)"
+  local DEVICE_NODEV=`echo "$1" |sed -e s,'^/dev/',, -e s,'^/sys/class/block/',,`
+
+  local LSBLK="$(lsblk -P --nodeps -n -b -o vendor,model,rev,serial "/dev/${DEVICE_NODEV}" |sed -r -e s,' +',' ',g -e s,'SERIAL=','S/N=',)"
   printf "%s" "$LSBLK"
 
-  local SIZE="$(blockdev --getsize64 "/dev/$BLK_NODEV" 2>/dev/null)"
+  local SIZE="$(blockdev --getsize64 "/dev/${DEVICE_NODEV}" 2>/dev/null)"
   if [ -n "$SIZE" ]; then
     printf -- " - $SIZE bytes ($(human_size $SIZE))"
   fi
@@ -411,6 +413,10 @@ sanity_check()
     exit 5
   fi
 
+  echo "* Source device $SOURCE: $(show_block_device_info $SOURCE)"
+  echo "* Target device $TARGET: $(show_block_device_info $TARGET)"
+  echo ""
+
   if [ "$SOURCE" = "$TARGET" ]; then
     printf "\033[40m\033[1;31mERROR: Source and target device are the same ($TARGET)! Quitting...\n033[0m" >&2
     echo "" >&2
@@ -468,9 +474,6 @@ sanity_check()
   if [ $REPORT_FORCE -eq 1 ]; then
     exit 8
   fi
-
-  echo "* Source device $SOURCE: $(show_block_device_info $SOURCE)"
-  echo "* Target device $TARGET: $(show_block_device_info $TARGET)"
 
   echo "* Saving mdadm detail scan to /tmp/mdadm-detail-scan..."
   mdadm --detail --scan --verbose >/tmp/mdadm-detail-scan
