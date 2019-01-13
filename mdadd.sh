@@ -1,10 +1,10 @@
 #!/bin/sh
 
-MY_VERSION="2.02e"
+MY_VERSION="2.02f"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: July 9, 2017
-# (C) Copyright 2005-2017 by Arno van Amersfoort
+# Last update: January 13, 2019
+# (C) Copyright 2005-2019 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -513,10 +513,6 @@ sanity_check()
     fi
   fi
   sfdisk -d "$TARGET" >"/tmp/sfdisk.target" 2>/dev/null
-  retval=$?
-  if [ $retval -ne 0 ]; then
-    printf "NOTE: sfdisk returned an error($retval) while dumping the partition table on $TARGET!\n" >&2
-  fi
 
   # GPT found on source?:
   if gpt_detect "$SOURCE"; then
@@ -754,7 +750,7 @@ copy_boot_partitions()
 #######################
 # Program entry point #
 #######################
-echo "mdadd v$MY_VERSION - (C) Copyright 2005-2016 by Arno van Amersfoort"
+echo "mdadd v$MY_VERSION - (C) Copyright 2005-2019 by Arno van Amersfoort"
 echo ""
 
 # Set environment variables to default
