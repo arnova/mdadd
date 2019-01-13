@@ -198,35 +198,12 @@ get_disk_partitions()
 
 show_block_device_info()
 {
-  local BLK_NODEV=`echo "$1" |sed -e s,'^/dev/',, -e s,'^/sys/class/block/',,`
-  local SYS_BLK="/sys/class/block/${BLK_NODEV}"
-
-  local NAME=""
-
-  local VENDOR="$(cat "${SYS_BLK}/device/vendor" 2>/dev/null |sed s!' *$'!!g)"
-  if [ -n "$VENDOR" ]; then
-    NAME="$VENDOR "
-  fi
-
-  local MODEL="$(cat "${SYS_BLK}/device/model"  2>/dev/null |sed s!' *$'!!g)"
-  if [ -n "$MODEL" ]; then
-    NAME="${NAME}${MODEL} "
-  fi
-
-  local REV="$(cat "${SYS_BLK}/device/rev"  2>/dev/null |sed s!' *$'!!g)"
-  if [ -n "$REV" -a "$REV" != "n/a" ]; then
-    NAME="${NAME}${REV} "
-  fi
-
-  if [ -n "$NAME" ]; then
-    printf "$NAME"
-  else
-    printf "No info "
-  fi
+  local LSBLK="$(lsblk -P --nodeps -n -b -o vendor,model,rev,serial "$1" |sed -r -e s,' +',' ',g -e s,'SERIAL=','S/N=',)"
+  printf "%s" "$LSBLK"
 
   local SIZE="$(blockdev --getsize64 "/dev/$BLK_NODEV" 2>/dev/null)"
   if [ -n "$SIZE" ]; then
-    printf -- "- $SIZE bytes ($(human_size $SIZE))"
+    printf -- " - $SIZE bytes ($(human_size $SIZE))"
   fi
 
   echo ""
@@ -406,6 +383,7 @@ sanity_check()
   check_command_error cat
   check_command_error blkid
   check_command_error blockdev
+  check_command_error lsblk
 
   if [ -z "$SOURCE" -o -z "$TARGET" ]; then
     echo "ERROR: Bad or missing argument(s)" >&2
