@@ -1,6 +1,6 @@
 #!/bin/sh
 
-MY_VERSION="2.02f"
+MY_VERSION="2.02g"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
 # Last update: January 13, 2019
@@ -338,7 +338,7 @@ check_command_error()
   if ! check_command "$@"; then
     printf "\033[40m\033[1;31mERROR  : Command(s) \"$(echo "$@" |tr ' ' '|')\" is/are not available!\033[0m\n" >&2
     printf "\033[40m\033[1;31m         Please investigate. Quitting...\033[0m\n" >&2
-    echo ""
+    echo "" >&2
     exit 2
   fi
 }
@@ -355,7 +355,7 @@ check_command_warning()
   if [ $retval -ne 0 ]; then
     printf "\033[40m\033[1;31mWARNING: Command(s) \"$(echo "$@" |tr ' ' '|')\" is/are not available!\033[0m\n" >&2
     printf "\033[40m\033[1;31m         Please investigate. This *may* be a problem!\033[0m\n" >&2
-    echo ""
+    echo "" >&2
   fi
 
   return $retval
@@ -367,7 +367,8 @@ sanity_check()
   local REPORT_FORCE=0
 
   if [ "$(id -u)" != "0" ]; then 
-    printf "\033[40m\033[1;31mERROR: Root check FAILED (you MUST be root to use this script)! Quitting...\n\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Root check FAILED (you MUST be root to use this script)! Quitting...\n\033[0m" >&2
+    echo "" >&2
     exit 1
   fi
 
@@ -392,12 +393,14 @@ sanity_check()
   fi
 
   if ! echo "$SOURCE" |grep -q '^/dev/'; then
-    printf "\033[40m\033[1;31mERROR: Source device $SOURCE does not start with /dev/! Quitting...\n\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Source device $SOURCE does not start with /dev/! Quitting...\n\033[0m" >&2
+    echo "" >&2
     exit 5
   fi
 
   if ! echo "$TARGET" |grep -q '^/dev/'; then
-    printf "\033[40m\033[1;31mERROR: Target device $TARGET does not start with /dev/! Quitting...\n\n033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Target device $TARGET does not start with /dev/! Quitting...\n033[0m" >&2
+    echo "" >&2
     exit 5
   fi
 
@@ -409,7 +412,8 @@ sanity_check()
   fi
 
   if [ "$SOURCE" = "$TARGET" ]; then
-    printf "\033[40m\033[1;31mERROR: Source and target device are the same ($TARGET)! Quitting...\n\n033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Source and target device are the same ($TARGET)! Quitting...\n033[0m" >&2
+    echo "" >&2
     exit 5
   fi
 
@@ -418,21 +422,22 @@ sanity_check()
   TARGET_NODEV="$(echo "$TARGET" |sed 's,^/dev/,,')"
 
   if [ -z "$(get_partitions ${SOURCE_NODEV})" ]; then
-    printf "\033[40m\033[1;31mERROR: Source device $SOURCE does not contain any partitions!? Quitting...\n\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Source device $SOURCE does not contain any partitions!? Quitting...\n\033[0m" >&2
+    echo "" >&2
     exit 7
   fi
 
   SOURCE_SIZE="$(blockdev --getsize64 "/dev/$SOURCE_NODEV" 2>/dev/null)"
   if [ -z "$SOURCE_SIZE" ]; then
-    printf "\033[40m\033[1;31mERROR: Source reports zero size! Quitting...\n\033[0m" >&2
-    echo ""
+    printf "\033[40m\033[1;31mERROR: Source device reports zero size! Quitting...\n\033[0m" >&2
+    echo "" >&2
     exit 8
   fi
 
   TARGET_SIZE="$(blockdev --getsize64 "/dev/$TARGET_NODEV" 2>/dev/null)"
   if [ -z "$TARGET_SIZE" ]; then
-    printf "\033[40m\033[1;31mERROR: Source reports zero size! Quitting...\n\033[0m" >&2
-    echo ""
+    printf "\033[40m\033[1;31mERROR: Target device reports zero size! Quitting...\n\033[0m" >&2
+    echo "" >&2
     exit 8
   fi
 
@@ -447,16 +452,16 @@ sanity_check()
   fi
 
   if [ -n "$(get_partitions ${TARGET_NODEV})" ] && [ $FORCE -ne 1 ]; then
-    get_partitions_with_size_type /dev/$TARGET_NODEV 
     printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV already contains partitions (Use --force to override)!\n\033[0m" >&2
-    echo ""
+    get_partitions_with_size_type /dev/$TARGET_NODEV >&2
+    echo "" >&2
     REPORT_FORCE=1
   fi
 
   if grep -E -q "[[:blank:]]${TARGET_NODEV}p?[0-9]*\[" /proc/mdstat; then
     printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV is already part of one or more md devices!\n\033[0m" >&2
-    cat /proc/mdstat
-    echo ""
+    cat /proc/mdstat >&2
+    echo "" >&2
     exit 7
   fi
 
@@ -471,21 +476,24 @@ sanity_check()
   mdadm --detail --scan --verbose >/tmp/mdadm-detail-scan
   retval=$?
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while determining detail information!\n\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while determining detail information!\n\033[0m" >&2
+    echo "" >&2
     exit 9
   fi
 
   echo "* Checking DOS partition table (if any) of source device $SOURCE..."
   if [ -e "/tmp/sfdisk.source" ]; then
     if ! mv "/tmp/sfdisk.source" "/tmp/sfdisk.source.bak"; then
-      printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sfdisk.source! Quitting...\n\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sfdisk.source! Quitting...\n\033[0m" >&2
+      echo "" >&2
       exit 11
     fi
   fi
   sfdisk -d "$SOURCE" >"/tmp/sfdisk.source"
   retval=$?
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while dumping the partition table on $SOURCE!\n\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while dumping the partition table on $SOURCE!\n\033[0m" >&2
+    echo "" >&2
     exit 11
   fi
 
@@ -493,7 +501,8 @@ sanity_check()
   if [ -e "/tmp/sfdisk.target" ]; then
     rm -f "/tmp/sfdisk.target.bak" >/dev/null 2>&1
     if ! mv "/tmp/sfdisk.target" "/tmp/sfdisk.target.bak"; then
-      printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sfdisk.target! Quitting...\n\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sfdisk.target! Quitting...\n\033[0m" >&2
+      echo "" >&2
       exit 11
     fi
   fi
@@ -507,7 +516,8 @@ sanity_check()
     echo "* Checking GPT partition table (if any) of source device $TARGET..."
     if [ -e "/tmp/sgdisk.source" ]; then
       if ! mv "/tmp/sgdisk.source" "/tmp/sgdisk.source.bak"; then
-        printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.source! Quitting...\n\n\033[0m" >&2
+        printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.source! Quitting...\n\033[0m" >&2
+        echo "" >&2
         exit 11
       fi
     fi
@@ -515,6 +525,7 @@ sanity_check()
     retval=$?
     if [ $retval -ne 0 ]; then
       printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while dumping the partition table on $SOURCE!\n\033[0m" >&2
+      echo "" >&2
       exit 11
     fi
   fi
@@ -524,7 +535,8 @@ sanity_check()
     if [ -e "/tmp/sgdisk.target" ]; then
       rm -f "/tmp/sgdisk.target.bak" >dev/null 2>&1
       if ! mv "/tmp/sgdisk.target" "/tmp/sgdisk.target.bak"; then
-        printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.target! Quitting...\n\n\033[0m" >&2
+        printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.target! Quitting...\n\033[0m" >&2
+        echo "" >&2
         exit 11
       fi
     fi
@@ -546,7 +558,8 @@ sanity_check()
       IFS=$EOL
       for part_nodev in $(get_partitions "$TARGET"); do
         if echo "$MD_DEV_LINE" |grep -E -q "[[:blank:]]$part_nodev\["; then
-          printf "\033[40m\033[1;31mERROR: Partition /dev/$part_nodev on target device is already in use by array /dev/$MD_DEV!\n\n\033[0m" >&2
+          printf "\033[40m\033[1;31mERROR: Partition /dev/$part_nodev on target device is already in use by array /dev/$MD_DEV!\n\033[0m" >&2
+          echo "" >&2
           exit 12
         fi
       done
@@ -623,7 +636,8 @@ copy_track0()
   fi
 
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: Track0(MBR) update from $SOURCE to /dev/$TARGET_NODEV failed($retval). Quitting...\n\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Track0(MBR) update from $SOURCE to /dev/$TARGET_NODEV failed($retval). Quitting...\n\033[0m" >&2
+    echo "" >&2
     exit 5
   fi 
 }
@@ -638,7 +652,8 @@ copy_partition_table()
     retval=$?
     if [ $retval -ne 0 ]; then
       printf '%s\n' "$result" >&2
-      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while copying the GPT partition table!\n\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while copying the GPT partition table!\n\033[0m" >&2
+      echo "" >&2s
       exit 9
     else
       printf '%s\n' "$result"
@@ -654,7 +669,8 @@ copy_partition_table()
 
     if [ $retval -ne 0 ]; then
       printf '%s\n' "$result" >&2
-      printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while writing the DOS partition table!\n\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while writing the DOS partition table!\n\033[0m" >&2
+      echo "" >&2
       exit 9
     fi
   fi
@@ -663,7 +679,8 @@ copy_partition_table()
   if partprobe "$TARGET" && part_check "$TARGET"; then
     return
   else
-    printf "\033[40m\033[1;31mERROR: (Re)reading the partition table failed!\n\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: (Re)reading the partition table failed!\n\033[0m" >&2
+    echo "" >&2
     exit 9
   fi
 }
@@ -689,7 +706,8 @@ add_devices_to_mds()
       done
 
       if [ -z "$PARTITION_NR" ]; then
-        printf "\033[40m\033[1;31mERROR: Unable to retrieve detail information for $SOURCE from $MD_DEV!\n\n\033[0m" >&2
+        printf "\033[40m\033[1;31mERROR: Unable to retrieve detail information for $SOURCE from $MD_DEV!\n\033[0m" >&2
+        echo "" >&2
         exit 11
       fi
 
@@ -700,7 +718,8 @@ add_devices_to_mds()
       mdadm --add "$MD_DEV" "${TARGET}${PARTITION_NR}"
       retval=$?
       if [ $retval -ne 0 ]; then
-        printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while adding device!\n\n\033[0m" >&2
+        printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while adding device!\n\033[0m" >&2
+        echo "" >&2
         exit 12
       fi
       printf "\033[0m"
