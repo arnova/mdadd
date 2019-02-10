@@ -244,7 +244,7 @@ part_check()
   IFS=' '
   local TRY=10
   while [ $TRY -gt 0 ]; do
-    TRY=$(($TRY - 1))
+    TRY=$((TRY - 1))
 
     # First make sure all partitions reported by the disk exist according to the kernel in /dev/
     DISK_PARTITIONS="$(get_disk_partitions "$DEVICE" |sed -r -e s,'^[/a-z]*',, -e s,'^[0-9]+p',, |sort -n)"
@@ -281,7 +281,7 @@ partprobe()
   # Retry several times since some daemons can block the re-reread for a while (like dm/lvm)
   local TRY=10
   while [ $TRY -gt 0 ]; do
-    TRY=$(($TRY - 1))
+    TRY=$((TRY - 1))
 
     # Somehow using the partprobe binary itself doesn't always work properly, so use blockdev instead
     result="$(blockdev --rereadpt "$DEVICE" 2>&1)"
