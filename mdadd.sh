@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.02g"
+MY_VERSION="2.03"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: January 13, 2019
+# Last update: December 12, 2019
 # (C) Copyright 2005-2019 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -135,6 +135,27 @@ sfdisk_safe()
 }
 
 
+# Get partition prefix(es) for provided device
+# $1 = Device
+get_partition_prefix()
+{
+  if echo "$1" |grep -q '[0-9]$'; then
+    echo "${1}p"
+  else
+    echo "${1}"
+  fi
+}
+
+
+# Get partition number from argument and return to stdout
+# This needs to handle the following formats properly: /dev/sda12, /dev/sda12p3, /dev/nvm0n1p12
+get_partition_number()
+{
+  # Obtain the last number from the string and consider that the partition number
+  echo "$1" |sed -r s,'.*[a-z]+([0-9]+)$','\1',
+}
+
+
 # $1 = disk device to get partitions from, if not specified all available partitions are listed
 get_partitions_with_size()
 {
@@ -143,7 +164,7 @@ get_partitions_with_size()
   local FIND_PARTS="$(cat /proc/partitions |sed -r -e '1,2d' -e s,'[[blank:]]+/dev/, ,' |awk '{ print $4" "$3 }')"
 
   if [ -n "$DISK_NODEV" ]; then
-    echo "$FIND_PARTS" |grep -E "^${DISK_NODEV}p?[0-9]+"
+    echo "$FIND_PARTS" |grep -E "^$(get_partition_prefix $DISK_NODEV)[0-9]+[[:blank:]]"
   else
     echo "$FIND_PARTS" # Show all
   fi
@@ -464,7 +485,7 @@ sanity_check()
     REPORT_FORCE=1
   fi
 
-  if grep -E -q "[[:blank:]]${TARGET_NODEV}p?[0-9]*\[" /proc/mdstat; then
+  if grep -E -q "[[:blank:]]($TARGET_NODEV|$(get_partition_prefix $TARGET_NODEV)[0-9]+)\[" /proc/mdstat; then
     printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV is already part of one or more md devices!\n\033[0m" >&2
     cat /proc/mdstat >&2
     echo "" >&2
@@ -603,9 +624,11 @@ create_swaps()
 
 disable_swaps()
 {
+  local TARGET="$1"
+
   # Disable all swaps on target disk
   IFS=$EOL
-  for SWAP in $(grep -E "^${TARGET}p?[0-9]+" /proc/swaps |awk '{ print $1 }'); do
+  for SWAP in $(grep -E "^$(get_partition_prefix $TARGET)[0-9]+[[:blank:]]" /proc/swaps |awk '{ print $1 }'); do
     echo "* Disabling swap partition $SWAP on target device $TARGET"
     swapoff $SWAP >/dev/null 2>&1
   done
@@ -614,6 +637,8 @@ disable_swaps()
 
 zap_mbr_and_partition_table()
 {
+  local TARGET="$1"
+
   # Completely zap GPT, MBR and legacy partition data
   sgdisk --zap-all "$TARGET" >/dev/null 2>&1
 
@@ -624,6 +649,9 @@ zap_mbr_and_partition_table()
 
 copy_track0()
 {
+  local SOURCE="$1"
+  local TARGET="$2"
+
   if [ $GPT_ENABLE -eq 0 ]; then
     echo "* Copying track0(containing MBR) from $SOURCE to $TARGET:"
     # Always try to use a full 1MiB of DD_SOURCE else GRUB2 with a (legacy) DOS partition doesn't work
@@ -639,7 +667,7 @@ copy_track0()
   fi
 
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: Track0(MBR) update from $SOURCE to /dev/$TARGET_NODEV failed($retval). Quitting...\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Track0(MBR) update from $SOURCE to $TARGET failed($retval). Quitting...\n\033[0m" >&2
     echo "" >&2
     exit 5
   fi 
@@ -648,6 +676,9 @@ copy_track0()
 
 copy_partition_table()
 {
+  local SOURCE="$1"
+  local TARGET="$2"
+
   # Handle GPT partition table
   if [ $GPT_ENABLE -eq 1 ]; then
     echo "* Copying GPT partition table from source $SOURCE to target $TARGET..."
@@ -692,33 +723,35 @@ copy_partition_table()
 # Copy/build all md devices that exist on the source drive:
 add_devices_to_mds()
 {
+  local SOURCE="$1"
+  local TARGET="$2"
+
   IFS=$EOL
   for LINE in $(cat /tmp/mdadm-detail-scan); do
     if echo "$LINE" |grep -E -q '^ARRAY[[:blank:]]'; then
       MD_DEV=$(echo "$LINE" |awk '{ print $2 }')
     fi
 
-    if echo "$LINE" |grep -E -q "devices=.*${SOURCE}p?[0-9]+"; then
+    if echo "$LINE" |grep -E -q "^[[blank:]]+devices="; then
       PARTITION_NR=""
       IFS=','
-      for item in `echo "$LINE" |sed -e "s:.*devices=::"`; do
-        if echo "$item" |grep -E -q -x "${SOURCE}p?[0-9]+"; then
-          PARTITION_NR=`echo "$item" |sed s:"$SOURCE"::`
+      for ITEM in `echo "$LINE" |sed -r "s,[[:blank:]]+devices=,,"`; do
+        if echo "$ITEM" |grep -E -q -x "$(get_partition_prefix $SOURCE)[0-9]+"; then
+          PARTITION_NR="$(get_partition_number $ITEM)"
           break
         fi
       done
 
       if [ -z "$PARTITION_NR" ]; then
-        printf "\033[40m\033[1;31mERROR: Unable to retrieve detail information for $SOURCE from $MD_DEV!\n\033[0m" >&2
-        echo "" >&2
-        exit 11
+        continue # No match found, go to next md
       fi
 
       NO_ADD=0
       echo ""
-      echo "* Adding ${TARGET}${PARTITION_NR} to RAID array $MD_DEV:"
+      TARGET_PARTITION="$(get_partition_prefix $TARGET)$PARTITION_NR"
+      echo "* Adding $TARGET_PARTITION to RAID array $MD_DEV:"
       printf "\033[40m\033[1;31m"
-      mdadm --add "$MD_DEV" "${TARGET}${PARTITION_NR}"
+      mdadm --add "$MD_DEV" "$TARGET_PARTITION"
       retval=$?
       if [ $retval -ne 0 ]; then
         printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while adding device!\n\033[0m" >&2
@@ -736,6 +769,9 @@ add_devices_to_mds()
 # Copy boot (eg. grub) partitions
 copy_boot_partitions()
 {
+  local SOURCE="$1"
+  local TARGET="$2"
+
   IFS=$EOL
   # Normally there will be one boot partition, but use a loop to allow this to be extended for other types
   sgdisk -p "$SOURCE" 2>/dev/null |grep -E -i "[[:blank:]](EF00|EF02)[[:blank:]]" |while read LINE; do
@@ -802,36 +838,36 @@ done
 # Make sure everything is sane:
 sanity_check
 
-disable_swaps
+disable_swaps "$TARGET"
 
 if [ $NO_PT_UPDATE -ne 1 -a $NO_BOOT_UPDATE -ne 1 ]; then
   # Zap MBR and partition table
-  zap_mbr_and_partition_table
+  zap_mbr_and_partition_table "$TARGET"
 fi
 
 # Copy legacy MBR/track0 boot loader to target disk (if any)
 if [ $NO_BOOT_UPDATE -ne 1 ]; then
-  copy_track0
+  copy_track0 "$SOURCE" "$TARGET"
 else
   echo "* NOTE: Not updating boot loader target $TARGET..."
 fi
 
 # Update (copy) partitions from source to target
 if [ $NO_PT_UPDATE -ne 1 ]; then
-  copy_partition_table
+  copy_partition_table "$SOURCE" "$TARGET"
 else
   echo "* NOTE: Not updating partition table on target $TARGET..."
 fi
 
 # Copy (GRUB) boot partitions to target disk (if any)
 if [ $NO_BOOT_UPDATE -ne 1 ]; then
-  copy_boot_partitions
+  copy_boot_partitions "$SOURCE" "$TARGET"
 fi
 
 # Create actual md devices on target
 if [ $NO_MD_ADD -ne 1 ]; then
   NO_ADD=1
-  add_devices_to_mds
+  add_devices_to_mds "$SOURCE" "$TARGET"
 
   # Wait a bit for mdstat to settle
   sleep 3
