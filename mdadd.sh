@@ -1,10 +1,10 @@
 #!/bin/sh
 
-MY_VERSION="2.03"
+MY_VERSION="2.03a"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: December 12, 2019
-# (C) Copyright 2005-2019 by Arno van Amersfoort
+# Last update: January 29, 2020
+# (C) Copyright 2005-2020 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -537,7 +537,7 @@ sanity_check()
     # Flag GPT use for the rest of the program:
     GPT_ENABLE=1
 
-    echo "* Checking GPT partition table (if any) of source device $TARGET..."
+    echo "* Checking GPT partition table (if any) of source device $SOURCE..."
     if [ -e "/tmp/sgdisk.source" ]; then
       if ! mv "/tmp/sgdisk.source" "/tmp/sgdisk.source.bak"; then
         printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.source! Quitting...\n\033[0m" >&2
