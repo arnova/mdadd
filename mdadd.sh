@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.03a"
+MY_VERSION="2.03b"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: January 29, 2020
+# Last update: February 13, 2020
 # (C) Copyright 2005-2020 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -486,8 +486,9 @@ sanity_check()
   fi
 
   if grep -E -q "[[:blank:]]($TARGET_NODEV|$(get_partition_prefix $TARGET_NODEV)[0-9]+)\[" /proc/mdstat; then
-    printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV is already part of one or more md devices!\n\033[0m" >&2
     cat /proc/mdstat >&2
+    echo "" >&2
+    printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV is already part of one or more md devices!\n\033[0m" >&2
     echo "" >&2
     exit 7
   fi
@@ -567,7 +568,7 @@ sanity_check()
     sgdisk_safe --backup="/tmp/sgdisk.target" "$TARGET" >/dev/null 2>&1
     retval=$?
     if [ $retval -ne 0 ]; then
-      printf "NOTE: sgdisk returned an error($retval) while dumping the partition table on $TARGET!\n" >&2
+      printf "WARNING: sgdisk returned an error($retval) while dumping the partition table on $TARGET!\n" >&2
     fi
   fi
 
