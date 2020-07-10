@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.03b"
+MY_VERSION="2.03c"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: February 13, 2020
+# Last update: July 10, 2020
 # (C) Copyright 2005-2020 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -727,13 +727,15 @@ add_devices_to_mds()
   local SOURCE="$1"
   local TARGET="$2"
 
+  echo "* Adding partition(s) to md(s)"
+
   IFS=$EOL
   for LINE in $(cat /tmp/mdadm-detail-scan); do
-    if echo "$LINE" |grep -E -q '^ARRAY[[:blank:]]'; then
+    if echo "$LINE" |grep -E -q '^(INACTIVE-)?ARRAY[[:blank:]]'; then
       MD_DEV=$(echo "$LINE" |awk '{ print $2 }')
     fi
 
-    if echo "$LINE" |grep -E -q "^[[blank:]]+devices="; then
+    if echo "$LINE" |grep -E -q "^[[:blank:]]+devices="; then
       PARTITION_NR=""
       IFS=','
       for ITEM in `echo "$LINE" |sed -r "s,[[:blank:]]+devices=,,"`; do
