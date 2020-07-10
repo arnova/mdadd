@@ -473,7 +473,7 @@ sanity_check()
       printf "\033[40m\033[1;31mERROR: Target device $TARGET ($TARGET_SIZE blocks) is smaller than source device $SOURCE ($SOURCE_SIZE blocks)! Quitting (Use --force to override)...\n\033[0m" >&2
       REPORT_FORCE=1
     else
-      printf "\033[40m\033[1;31mWARNING: Target device $TARGET ($TARGET_SIZE blocks) is smaller than source device $SOURCE ($SOURCE_SIZE blocks)\nPress enter to continue or CTRL-C to abort...\n\033[0m" >&2
+      printf "\033[40m\033[1;31mWARNING: Target device $TARGET ($TARGET_SIZE blocks) is smaller than source device $SOURCE ($SOURCE_SIZE blocks)\nPress <enter> to continue or CTRL-C to abort...\n\033[0m" >&2
       read dummy
     fi
   fi
@@ -597,7 +597,7 @@ sanity_check()
       for part_nodev in $(get_partitions "$SOURCE"); do
         if echo "$MD_DEV_LINE" |grep -E -q "[[:blank:]]$part_nodev\["; then
           printf "$MD_DEV_LINE\n$MDSTAT_LINE\n"
-          printf "\033[40m\033[1;31mWARNING: Array $MD_DEV is NOT degraded, target device ${TARGET}$(echo "$part_nodev" |sed "s,$SOURCE_NODEV,,") will become a hotspare!\nPress enter to continue or CTRL-C to abort...\n\033[0m" >&2
+          printf "\033[40m\033[1;31mWARNING: Array $MD_DEV is NOT degraded, target device ${TARGET}$(echo "$part_nodev" |sed "s,$SOURCE_NODEV,,") will become a hotspare!\nPress <enter> to continue or CTRL-C to abort...\n\033[0m" >&2
           read dummy
         fi
       done
