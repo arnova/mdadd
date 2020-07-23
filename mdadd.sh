@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.03c"
+MY_VERSION="2.04"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: July 10, 2020
+# Last update: July 23, 2020
 # (C) Copyright 2005-2020 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -497,8 +497,8 @@ sanity_check()
     exit 8
   fi
 
-  echo "* Saving mdadm detail scan to /tmp/mdadm-detail-scan..."
-  mdadm --detail --scan --verbose >/tmp/mdadm-detail-scan
+  echo "* Perfoming mdadm detail scan..."
+  mdadm --detail --scan --verbose >/dev/null
   retval=$?
   if [ $retval -ne 0 ]; then
     printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while determining detail information!\n\033[0m" >&2
@@ -558,7 +558,7 @@ sanity_check()
   if gpt_detect "$TARGET"; then
     echo "* Checking GPT partition table (if any) of target device $TARGET..."
     if [ -e "/tmp/sgdisk.target" ]; then
-      rm -f "/tmp/sgdisk.target.bak" >dev/null 2>&1
+      rm -f "/tmp/sgdisk.target.bak" >/dev/null 2>&1
       if ! mv "/tmp/sgdisk.target" "/tmp/sgdisk.target.bak"; then
         printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.target! Quitting...\n\033[0m" >&2
         echo "" >&2
@@ -575,7 +575,7 @@ sanity_check()
   echo "* Checking status of running MDs..."
   MD_DEV=""
   IFS=$EOL
-  for MDSTAT_LINE in $(cat /proc/mdstat); do
+  while read MDSTAT_LINE; do
     if echo "$MDSTAT_LINE" |grep -q '^md'; then
       MD_DEV_LINE="$MDSTAT_LINE"
       MD_DEV="$(echo "$MDSTAT_LINE" |awk '{ print $1 }')"
@@ -602,7 +602,7 @@ sanity_check()
         fi
       done
     fi
-  done
+  done < /proc/mdstat
 }
 
 
@@ -730,18 +730,19 @@ add_devices_to_mds()
   echo "* Adding partition(s) to md(s)"
 
   IFS=$EOL
-  for LINE in $(cat /tmp/mdadm-detail-scan); do
-    if echo "$LINE" |grep -E -q '^(INACTIVE-)?ARRAY[[:blank:]]'; then
-      MD_DEV=$(echo "$LINE" |awk '{ print $2 }')
-    fi
+  while read LINE; do
+    if echo "$LINE" |grep -E -q '^md[0-9] : active '; then
+      MD_DEV="/dev/$(echo "$LINE" |awk '{ print $1 }')"
 
-    if echo "$LINE" |grep -E -q "^[[:blank:]]+devices="; then
       PARTITION_NR=""
-      IFS=','
-      for ITEM in `echo "$LINE" |sed -r "s,[[:blank:]]+devices=,,"`; do
-        if echo "$ITEM" |grep -E -q -x "$(get_partition_prefix $SOURCE)[0-9]+"; then
-          PARTITION_NR="$(get_partition_number $ITEM)"
-          break
+      IFS=' '
+      for ITEM in $LINE; do
+        if echo "$ITEM" |grep -q -E '\[[0-9]+\]$'; then
+          PART="$(echo "$ITEM" |sed -r 's,\[[0-9]+\]$,,')"
+          if echo "/dev/$PART" |grep -E -q -x "$(get_partition_prefix $SOURCE)[0-9]+"; then
+            PARTITION_NR="$(get_partition_number $PART)"
+            break
+          fi
         fi
       done
 
@@ -763,7 +764,7 @@ add_devices_to_mds()
       fi
       printf "\033[0m"
     fi
-  done
+  done < /proc/mdstat
 
   echo ""
 }
@@ -796,7 +797,7 @@ copy_boot_partitions()
 #######################
 # Program entry point #
 #######################
-echo "mdadd v$MY_VERSION - (C) Copyright 2005-2019 by Arno van Amersfoort"
+echo "mdadd v$MY_VERSION - (C) Copyright 2005-2020 by Arno van Amersfoort"
 echo ""
 
 # Set environment variables to default
