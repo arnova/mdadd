@@ -1,6 +1,6 @@
 #!/bin/sh
 
-MY_VERSION="2.04"
+MY_VERSION="2.04a"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
 # Last update: July 23, 2020
@@ -329,7 +329,7 @@ partprobe()
 # Function to detect whether a device has a GPT partition table
 gpt_detect()
 {
-  if gdisk -l "$1" |grep -q 'GPT: not present'; then
+  if sfdisk -d "$1" |grep -q -E -i -e '^/dev/.*[[:blank:]]Id=ee' -e '^label: gpt'; then
     return 1 # GPT not found
   else
     return 0 # GPT found
@@ -399,7 +399,6 @@ sanity_check()
   check_command_error sfdisk
   check_command_error fdisk
   check_command_error sgdisk
-  check_command_error gdisk
   check_command_error dd
   check_command_error awk
   check_command_error grep
@@ -727,11 +726,11 @@ add_devices_to_mds()
   local SOURCE="$1"
   local TARGET="$2"
 
-  echo "* Adding partition(s) to md(s)"
+  echo "* Adding partition(s) to (active) md(s)"
 
   IFS=$EOL
   while read LINE; do
-    if echo "$LINE" |grep -E -q '^md[0-9] : active '; then
+    if echo "$LINE" |grep -q -E '^md[0-9]+ : active '; then
       MD_DEV="/dev/$(echo "$LINE" |awk '{ print $1 }')"
 
       PARTITION_NR=""
