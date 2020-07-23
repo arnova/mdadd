@@ -1,6 +1,6 @@
 #!/bin/sh
 
-MY_VERSION="2.04a"
+MY_VERSION="2.04b"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
 # Last update: July 23, 2020
@@ -729,41 +729,39 @@ add_devices_to_mds()
   echo "* Adding partition(s) to (active) md(s)"
 
   IFS=$EOL
-  while read LINE; do
-    if echo "$LINE" |grep -q -E '^md[0-9]+ : active '; then
-      MD_DEV="/dev/$(echo "$LINE" |awk '{ print $1 }')"
+  for LINE in `grep -E '^md[0-9]+ : active ' /proc/mdstat |sort`; do
+    MD_DEV="/dev/$(echo "$LINE" |awk '{ print $1 }')"
 
-      PARTITION_NR=""
-      IFS=' '
-      for ITEM in $LINE; do
-        if echo "$ITEM" |grep -q -E '\[[0-9]+\]$'; then
-          PART="$(echo "$ITEM" |sed -r 's,\[[0-9]+\]$,,')"
-          if echo "/dev/$PART" |grep -E -q -x "$(get_partition_prefix $SOURCE)[0-9]+"; then
-            PARTITION_NR="$(get_partition_number $PART)"
-            break
-          fi
+    PARTITION_NR=""
+    IFS=' '
+    for ITEM in $LINE; do
+      if echo "$ITEM" |grep -q -E '\[[0-9]+\]$'; then
+        PART="$(echo "$ITEM" |sed -r 's,\[[0-9]+\]$,,')"
+        if echo "/dev/$PART" |grep -E -q -x "$(get_partition_prefix $SOURCE)[0-9]+"; then
+          PARTITION_NR="$(get_partition_number $PART)"
+          break
         fi
-      done
-
-      if [ -z "$PARTITION_NR" ]; then
-        continue # No match found, go to next md
       fi
+    done
 
-      NO_ADD=0
-      echo ""
-      TARGET_PARTITION="$(get_partition_prefix $TARGET)$PARTITION_NR"
-      echo "* Adding $TARGET_PARTITION to RAID array $MD_DEV:"
-      printf "\033[40m\033[1;31m"
-      mdadm --add "$MD_DEV" "$TARGET_PARTITION"
-      retval=$?
-      if [ $retval -ne 0 ]; then
-        printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while adding device!\n\033[0m" >&2
-        echo "" >&2
-        exit 12
-      fi
-      printf "\033[0m"
+    if [ -z "$PARTITION_NR" ]; then
+      continue # No match found, go to next md
     fi
-  done < /proc/mdstat
+
+    NO_ADD=0
+    echo ""
+    TARGET_PARTITION="$(get_partition_prefix $TARGET)$PARTITION_NR"
+    echo "* Adding $TARGET_PARTITION to RAID array $MD_DEV:"
+    printf "\033[40m\033[1;31m"
+    mdadm --add "$MD_DEV" "$TARGET_PARTITION"
+    retval=$?
+    if [ $retval -ne 0 ]; then
+      printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while adding device!\n\033[0m" >&2
+      echo "" >&2
+      exit 12
+    fi
+    printf "\033[0m"
+  done
 
   echo ""
 }
