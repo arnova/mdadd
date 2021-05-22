@@ -1,10 +1,10 @@
 #!/bin/sh
 
-MY_VERSION="2.04b"
+MY_VERSION="2.04c"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: July 23, 2020
-# (C) Copyright 2005-2020 by Arno van Amersfoort
+# Last update: May 22, 2021
+# (C) Copyright 2005-2021 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -410,6 +410,7 @@ sanity_check()
 
   if [ -z "$SOURCE" -o -z "$TARGET" ]; then
     echo "ERROR: Bad or missing argument(s)" >&2
+    echo "" >&2
     show_help
     exit 4
   fi
@@ -794,7 +795,7 @@ copy_boot_partitions()
 #######################
 # Program entry point #
 #######################
-echo "mdadd v$MY_VERSION - (C) Copyright 2005-2020 by Arno van Amersfoort"
+echo "mdadd v$MY_VERSION - (C) Copyright 2005-2021 by Arno van Amersfoort"
 echo ""
 
 # Set environment variables to default
@@ -807,9 +808,11 @@ TARGET=""
 
 # Check arguments
 unset IFS
-for arg in $*; do
-  ARGNAME="$(echo "$arg" |cut -d= -f1)"
-  ARGVAL="$(echo "$arg" |cut -d= -f2 -s)"
+for ARG in $*; do
+  ARGNAME="${ARG%%=*}"
+  # Can't directly obtain value as = is optional!:
+  ARGVAL="${ARG#$ARGNAME}"
+  ARGVAL="${ARGVAL#=}"
 
   case "$ARGNAME" in
                                  --force|-force|-f) FORCE=1;;
@@ -819,16 +822,18 @@ for arg in $*; do
                                          --help|-h) show_help
                                                     exit 0
                                                     ;;
-                                                -*) echo "ERROR: Bad argument \"$arg\"" >&2
+                                                -*) echo "ERROR: Bad argument \"$ARG\"" >&2
+                                                    echo "" >&2
                                                     show_help
                                                     exit 1
                                                     ;;
                                                  *) if [ -z "$SOURCE" ]; then
-                                                      SOURCE="$arg"
+                                                      SOURCE="$ARG"
                                                     elif [ -z "$TARGET" ]; then
-                                                      TARGET="$arg"
+                                                      TARGET="$ARG"
                                                     else
-                                                      echo "ERROR: Bad command syntax with argument \"$arg\"" >&2
+                                                      echo "ERROR: Bad command syntax with argument \"$ARG\"" >&2
+                                                      echo "" >&2
                                                       show_help
                                                       exit 1
                                                     fi
