@@ -222,10 +222,10 @@ show_block_device_info()
 {
   local DEVICE_NODEV="$(echo "$1" |sed -e s,'^/dev/',, -e s,'^/sys/class/block/',,)"
 
-  local LSBLK="$(lsblk -P --nodeps -n -b -o vendor,model,rev,serial "/dev/${DEVICE_NODEV}" |sed -r -e s,' +',' ',g -e s,'SERIAL=','S/N=',)"
+  local LSBLK="$(lsblk -P --nodeps -n -b -o vendor,model,rev,serial "/dev/$DEVICE_NODEV" |sed -r -e s,' +',' ',g -e s,'SERIAL=','S/N=',)"
   printf "%s" "$LSBLK"
 
-  local SIZE="$(blockdev --getsize64 "/dev/${DEVICE_NODEV}" 2>/dev/null)"
+  local SIZE="$(blockdev --getsize64 "/dev/$DEVICE_NODEV" 2>/dev/null)"
   if [ -n "$SIZE" ]; then
     printf -- " - %s bytes (%s)" "$SIZE" "$(human_size $SIZE)"
   fi
