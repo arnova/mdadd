@@ -3,8 +3,8 @@
 MY_VERSION="2.04c"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: May 22, 2021
-# (C) Copyright 2005-2021 by Arno van Amersfoort
+# Last update: January 27, 2022
+# (C) Copyright 2005-2022 by Arno van Amersfoort
 # Homepage              : http://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -159,7 +159,7 @@ get_partition_number()
 # $1 = disk device to get partitions from, if not specified all available partitions are listed
 get_partitions_with_size()
 {
-  local DISK_NODEV=`echo "$1" |sed s,'^/dev/',,`
+  local DISK_NODEV="${1#/dev/}"
 
   local FIND_PARTS="$(cat /proc/partitions |sed -r -e '1,2d' -e s,'[[blank:]]+/dev/, ,' |awk '{ print $4" "$3 }')"
 
@@ -181,19 +181,20 @@ get_partitions()
 # $1 = disk device to get partitions from, if not specified all available partitions are listed
 get_partitions_with_size_type()
 {
-  local DISK_NODEV=`echo "$1" |sed s,'^/dev/',,`
+  local DISK_NODEV="${1#/dev/}"
+  local PART_NODEV SIZE SIZE_HUMAN BLKID_INFO
 
   IFS=$EOL
   get_partitions "$DISK_NODEV" |while read LINE; do
-    local PART_NODEV=`echo "$LINE" |awk '{ print $1 }'`
+    PART_NODEV="$(echo "$LINE" |awk '{ print $1 }')"
 
-    local SIZE="$(blockdev --getsize64 "/dev/$PART_NODEV" 2>/dev/null)"
+    SIZE="$(blockdev --getsize64 "/dev/$PART_NODEV" 2>/dev/null)"
     if [ -z "$SIZE" ]; then
       SIZE=0
     fi
-    local SIZE_HUMAN="$(human_size $SIZE |tr ' ' '_')"
+    SIZE_HUMAN="$(human_size $SIZE |tr ' ' '_')"
 
-    local BLKID_INFO="$(blkid -o full -s LABEL -s TYPE -s UUID -s PARTUUID "/dev/$PART_NODEV" 2>/dev/null |sed s,'^/dev/.*: ',,)"
+    BLKID_INFO="$(blkid -o full -s LABEL -s TYPE -s UUID -s PARTUUID "/dev/$PART_NODEV" 2>/dev/null |sed s,'^/dev/.*: ',,)"
     if [ -z "$BLKID_INFO" ]; then
       BLKID_INFO="TYPE=\"unknown\""
     fi
@@ -205,7 +206,7 @@ get_partitions_with_size_type()
 # Get partitions directly from disk using sgdisk
 get_disk_partitions()
 {
-  local DISK_NODEV=`echo "$1" |sed s,'^/dev/',,`
+  local DISK_NODEV="${1#/dev/}"
 
   local DEV_PREFIX="/dev/$DISK_NODEV"
   # FIXME: Not sure if this is correct:
@@ -219,14 +220,14 @@ get_disk_partitions()
 
 show_block_device_info()
 {
-  local DEVICE_NODEV=`echo "$1" |sed -e s,'^/dev/',, -e s,'^/sys/class/block/',,`
+  local DEVICE_NODEV="$(echo "$1" |sed -e s,'^/dev/',, -e s,'^/sys/class/block/',,)"
 
   local LSBLK="$(lsblk -P --nodeps -n -b -o vendor,model,rev,serial "/dev/${DEVICE_NODEV}" |sed -r -e s,' +',' ',g -e s,'SERIAL=','S/N=',)"
   printf "%s" "$LSBLK"
 
   local SIZE="$(blockdev --getsize64 "/dev/${DEVICE_NODEV}" 2>/dev/null)"
   if [ -n "$SIZE" ]; then
-    printf -- " - $SIZE bytes ($(human_size $SIZE))"
+    printf -- " - %s bytes (%s)" "$SIZE" "$(human_size $SIZE)"
   fi
 
   echo ""
@@ -259,7 +260,7 @@ part_check()
 {
   local DEVICE="$1"
 
-  printf "Waiting for up to date partition table from kernel for $DEVICE..."
+  printf "Waiting for up to date partition table from kernel for %s..." "$DEVICE"
 
   # Retry several times since some daemons can block the re-reread for a while (like dm/lvm)
   IFS=' '
@@ -359,7 +360,7 @@ check_command_error()
   local IFS=' '
 
   if ! check_command "$@"; then
-    printf "\033[40m\033[1;31mERROR  : Command(s) \"$(echo "$@" |tr ' ' '|')\" is/are not available!\033[0m\n" >&2
+    printf "\033[40m\033[1;31mERROR  : Command(s) \"%s\" is/are not available!\033[0m\n" "$(echo "$@" |tr ' ' '|')" >&2
     printf "\033[40m\033[1;31m         Please investigate. Quitting...\033[0m\n" >&2
     echo "" >&2
     exit 2
@@ -376,7 +377,7 @@ check_command_warning()
   retval=$?
 
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mWARNING: Command(s) \"$(echo "$@" |tr ' ' '|')\" is/are not available!\033[0m\n" >&2
+    printf "\033[40m\033[1;31mWARNING: Command(s) \"%s\" is/are not available!\033[0m\n" "$(echo "$@" |tr ' ' '|')" >&2
     printf "\033[40m\033[1;31m         Please investigate. This *may* be a problem!\033[0m\n" >&2
     echo "" >&2
   fi
@@ -416,13 +417,13 @@ sanity_check()
   fi
 
   if ! echo "$SOURCE" |grep -q '^/dev/'; then
-    printf "\033[40m\033[1;31mERROR: Source device $SOURCE does not start with /dev/! Quitting...\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Source device %s does not start with /dev/! Quitting...\n\033[0m" "$SOURCE" >&2
     echo "" >&2
     exit 5
   fi
 
   if ! echo "$TARGET" |grep -q '^/dev/'; then
-    printf "\033[40m\033[1;31mERROR: Target device $TARGET does not start with /dev/! Quitting...\n033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Target device %s does not start with /dev/! Quitting...\n033[0m" "$TARGET" >&2
     echo "" >&2
     exit 5
   fi
@@ -439,17 +440,17 @@ sanity_check()
   echo ""
 
   if [ "$SOURCE" = "$TARGET" ]; then
-    printf "\033[40m\033[1;31mERROR: Source and target device are the same ($TARGET)! Quitting...\n033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Source and target device are the same (%s)! Quitting...\n033[0m" "$TARGET" >&2
     echo "" >&2
     exit 5
   fi
 
   # We also want variables without /dev/ :
-  SOURCE_NODEV="$(echo "$SOURCE" |sed 's,^/dev/,,')"
-  TARGET_NODEV="$(echo "$TARGET" |sed 's,^/dev/,,')"
+  SOURCE_NODEV="${SOURCE#/dev/}"
+  TARGET_NODEV="${TARGET#/dev/}"
 
-  if [ -z "$(get_partitions ${SOURCE_NODEV})" ]; then
-    printf "\033[40m\033[1;31mERROR: Source device $SOURCE does not contain any partitions!? Quitting...\n\033[0m" >&2
+  if [ -z "$(get_partitions "$SOURCE_NODEV")" ]; then
+    printf "\033[40m\033[1;31mERROR: Source device %s does not contain any partitions!? Quitting...\n\033[0m" "$SOURCE" >&2
     echo "" >&2
     exit 7
   fi
@@ -470,16 +471,16 @@ sanity_check()
 
   if [ $SOURCE_SIZE -gt $TARGET_SIZE ]; then
     if [ $FORCE -ne 1 ]; then
-      printf "\033[40m\033[1;31mERROR: Target device $TARGET ($TARGET_SIZE blocks) is smaller than source device $SOURCE ($SOURCE_SIZE blocks)! Quitting (Use --force to override)...\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: Target device %s (%s blocks) is smaller than source device %s (%s blocks)! Quitting (Use --force to override)...\n\033[0m" "$TARGET" "$TARGET_SIZE" "$SOURCE" "$SOURCE_SIZE" >&2
       REPORT_FORCE=1
     else
-      printf "\033[40m\033[1;31mWARNING: Target device $TARGET ($TARGET_SIZE blocks) is smaller than source device $SOURCE ($SOURCE_SIZE blocks)\nPress <enter> to continue or CTRL-C to abort...\n\033[0m" >&2
+      printf "\033[40m\033[1;31mWARNING: Target device %s (%s blocks) is smaller than source device %s (%s blocks)\nPress <enter> to continue or CTRL-C to abort...\n\033[0m" "$TARGET" "$TARGET_SIZE" "$SOURCE" "$SOURCE_SIZE" >&2
       read dummy
     fi
   fi
 
-  if [ -n "$(get_partitions ${TARGET_NODEV})" ] && [ $FORCE -ne 1 ]; then
-    printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV already contains partitions (Use --force to override)!\n\033[0m" >&2
+  if [ -n "$(get_partitions $TARGET_NODEV)" ] && [ $FORCE -ne 1 ]; then
+    printf "\033[40m\033[1;31mERROR: Target device /dev/%s already contains partitions (Use --force to override)!\n\033[0m" "$TARGET_NODEV" >&2
     get_partitions_with_size_type /dev/$TARGET_NODEV >&2
     echo "" >&2
     REPORT_FORCE=1
@@ -488,7 +489,7 @@ sanity_check()
   if grep -E -q "[[:blank:]]($TARGET_NODEV|$(get_partition_prefix $TARGET_NODEV)[0-9]+)\[" /proc/mdstat; then
     cat /proc/mdstat >&2
     echo "" >&2
-    printf "\033[40m\033[1;31mERROR: Target device /dev/$TARGET_NODEV is already part of one or more md devices!\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Target device /dev/%s is already part of one or more md devices!\n\033[0m" "$TARGET_NODEV" >&2
     echo "" >&2
     exit 7
   fi
@@ -501,7 +502,7 @@ sanity_check()
   mdadm --detail --scan --verbose >/dev/null
   retval=$?
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while determining detail information!\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: mdadm returned an error(%i) while determining detail information!\n\033[0m" $retval >&2
     echo "" >&2
     exit 9
   fi
@@ -517,7 +518,7 @@ sanity_check()
   sfdisk -d "$SOURCE" >"/tmp/sfdisk.source"
   retval=$?
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while dumping the partition table on $SOURCE!\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: sfdisk returned an error(%i) while dumping the partition table on %s!\n\033[0m" $retval "$SOURCE" >&2
     echo "" >&2
     exit 11
   fi
@@ -549,7 +550,7 @@ sanity_check()
     sgdisk_safe --backup="/tmp/sgdisk.source" "$SOURCE" >/dev/null
     retval=$?
     if [ $retval -ne 0 ]; then
-      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while dumping the partition table on $SOURCE!\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: sgdisk returned an error(%i) while dumping the partition table on %s!\n\033[0m" $retval "$SOURCE" >&2
       echo "" >&2
       exit 11
     fi
@@ -568,7 +569,7 @@ sanity_check()
     sgdisk_safe --backup="/tmp/sgdisk.target" "$TARGET" >/dev/null 2>&1
     retval=$?
     if [ $retval -ne 0 ]; then
-      printf "WARNING: sgdisk returned an error($retval) while dumping the partition table on $TARGET!\n" >&2
+      printf "WARNING: sgdisk returned an error(%i) while dumping the partition table on %s!\n" $retval "$TARGET" >&2
     fi
   fi
 
@@ -581,9 +582,9 @@ sanity_check()
       MD_DEV="$(echo "$MDSTAT_LINE" |awk '{ print $1 }')"
 
       IFS=$EOL
-      for part_nodev in $(get_partitions "$TARGET"); do
-        if echo "$MD_DEV_LINE" |grep -E -q "[[:blank:]]$part_nodev\["; then
-          printf "\033[40m\033[1;31mERROR: Partition /dev/$part_nodev on target device is already in use by array /dev/$MD_DEV!\n\033[0m" >&2
+      for PART_NODEV in $(get_partitions "$TARGET"); do
+        if echo "$MD_DEV_LINE" |grep -E -q "[[:blank:]]$PART_NODEV\["; then
+          printf "\033[40m\033[1;31mERROR: Partition /dev/%s on target device is already in use by array /dev/%s!\n\033[0m" "$PART_NODEV" "$MD_DEV" >&2
           echo "" >&2
           exit 12
         fi
@@ -594,10 +595,10 @@ sanity_check()
       # This array is NOT degraded so now check whether we want to add devices to it:
 
       IFS=$EOL
-      for part_nodev in $(get_partitions "$SOURCE"); do
-        if echo "$MD_DEV_LINE" |grep -E -q "[[:blank:]]$part_nodev\["; then
-          printf "$MD_DEV_LINE\n$MDSTAT_LINE\n"
-          printf "\033[40m\033[1;31mWARNING: Array $MD_DEV is NOT degraded, target device ${TARGET}$(echo "$part_nodev" |sed "s,$SOURCE_NODEV,,") will become a hotspare!\nPress <enter> to continue or CTRL-C to abort...\n\033[0m" >&2
+      for PART_NODEV in $(get_partitions "$SOURCE"); do
+        if echo "$MD_DEV_LINE" |grep -E -q "[[:blank:]]$PART_NODEV\["; then
+          printf "%s\n%s\n" "$MD_DEV_LINE" "$MDSTAT_LINE"
+          printf "\033[40m\033[1;31mWARNING: Array % is NOT degraded, target device %s%s will become a hotspare!\nPress <enter> to continue or CTRL-C to abort...\n\033[0m" "$MD_DEV" "$TARGET" "${PART_NODEV#"$SOURCE_NODEV"}" >&2
           read dummy
         fi
       done
@@ -617,7 +618,7 @@ create_swaps()
     PART="$(add_partition_number "$DEVICE" "$NUM")"
     echo "* Creating swap on $PART (don't forget to enable in /etc/fstab!)..."
     if ! mkswap "$PART"; then
-      printf "\033[40m\033[1;31mWARNING: mkswap failed for $PART\n\033[0m" >&2
+      printf "\033[40m\033[1;31mWARNING: mkswap failed for %s\n\033[0m" "$PART" >&2
     fi
   done
 }
@@ -668,7 +669,7 @@ copy_track0()
   fi
 
   if [ $retval -ne 0 ]; then
-    printf "\033[40m\033[1;31mERROR: Track0(MBR) update from $SOURCE to $TARGET failed($retval). Quitting...\n\033[0m" >&2
+    printf "\033[40m\033[1;31mERROR: Track0(MBR) update from %s to %s failed(%i). Quitting...\n\033[0m" "$SOURCE" "$TARGET" $retval >&2
     echo "" >&2
     exit 5
   fi 
@@ -687,7 +688,7 @@ copy_partition_table()
     retval=$?
     if [ $retval -ne 0 ]; then
       printf '%s\n' "$result" >&2
-      printf "\033[40m\033[1;31mERROR: sgdisk returned an error($retval) while copying the GPT partition table!\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: sgdisk returned an error(%i) while copying the GPT partition table!\n\033[0m" $retval >&2
       echo "" >&2s
       exit 9
     else
@@ -704,7 +705,7 @@ copy_partition_table()
 
     if [ $retval -ne 0 ]; then
       printf '%s\n' "$result" >&2
-      printf "\033[40m\033[1;31mERROR: sfdisk returned an error($retval) while writing the DOS partition table!\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: sfdisk returned an error(%i) while writing the DOS partition table!\n\033[0m" "$retval" >&2
       echo "" >&2
       exit 9
     fi
@@ -730,7 +731,7 @@ add_devices_to_mds()
   echo "* Adding partition(s) to (active) md(s)"
 
   IFS=$EOL
-  for LINE in `grep -E '^md[0-9]+ : active ' /proc/mdstat |sort`; do
+  for LINE in $(grep -E '^md[0-9]+ : active ' /proc/mdstat |sort); do
     MD_DEV="/dev/$(echo "$LINE" |awk '{ print $1 }')"
 
     PARTITION_NR=""
@@ -757,7 +758,7 @@ add_devices_to_mds()
     mdadm --add "$MD_DEV" "$TARGET_PARTITION"
     retval=$?
     if [ $retval -ne 0 ]; then
-      printf "\033[40m\033[1;31mERROR: mdadm returned an error($retval) while adding device!\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: mdadm returned an error(%i) while adding device!\n\033[0m" $retval >&2
       echo "" >&2
       exit 12
     fi
@@ -768,14 +769,14 @@ add_devices_to_mds()
 }
 
 
-# Copy boot (eg. grub) partitions
+# Copy boot/EFI (eg. grub) partitions
 copy_boot_partitions()
 {
   local SOURCE="$1"
   local TARGET="$2"
 
   IFS=$EOL
-  # Normally there will be one boot partition, but use a loop to allow this to be extended for other types
+  # Normally there will be one boot/EFI partition, but use a loop to allow this to be extended for other types
   sgdisk -p "$SOURCE" 2>/dev/null |grep -E -i "[[:blank:]](EF00|EF02)[[:blank:]]" |while read LINE; do
     NUM="$(echo "$LINE" |awk '{ print $1 }')"
     SOURCE_PART="$(add_partition_number "$SOURCE" "$NUM")"
@@ -786,7 +787,7 @@ copy_boot_partitions()
     retval=$?
 
     if [ $retval -ne 0 ]; then
-      printf "\033[40m\033[1;31mERROR: GPT boot partition $SOURCE_PART failed to copy to $TARGET_PART($retval)!\n\n\033[0m" >&2
+      printf "\033[40m\033[1;31mERROR: GPT boot partition %s failed to copy to %s(%i)!\n\n\033[0m" "$SOURCE_PART" "$TARGET_PART" $retval >&2
     fi
   done
 }
@@ -795,7 +796,7 @@ copy_boot_partitions()
 #######################
 # Program entry point #
 #######################
-echo "mdadd v$MY_VERSION - (C) Copyright 2005-2021 by Arno van Amersfoort"
+echo "mdadd v$MY_VERSION - (C) Copyright 2005-2022 by Arno van Amersfoort"
 echo ""
 
 # Set environment variables to default
@@ -865,7 +866,7 @@ else
   echo "* NOTE: Not updating partition table on target $TARGET..."
 fi
 
-# Copy (GRUB) boot partitions to target disk (if any)
+# Copy (GRUB) boot/EFI partitions to target disk (if any)
 if [ $NO_BOOT_UPDATE -ne 1 ]; then
   copy_boot_partitions "$SOURCE" "$TARGET"
 fi
