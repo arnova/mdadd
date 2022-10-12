@@ -5,7 +5,7 @@ MY_VERSION="2.04c"
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
 # Last update: January 27, 2022
 # (C) Copyright 2005-2022 by Arno van Amersfoort
-# Homepage              : http://rocky.eld.leidenuniv.nl/
+# Homepage              : https://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
 # ----------------------------------------------------------------------------------------------------------------------
