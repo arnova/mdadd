@@ -1,9 +1,9 @@
 #!/bin/sh
 
-MY_VERSION="2.04c"
+MY_VERSION="2.04d"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: January 27, 2022
+# Last update: December 23, 2022
 # (C) Copyright 2005-2022 by Arno van Amersfoort
 # Homepage              : https://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
@@ -331,9 +331,9 @@ partprobe()
 gpt_detect()
 {
   if sfdisk -d "$1" |grep -q -E -i -e '^/dev/.*[[:blank:]]Id=ee' -e '^label: gpt'; then
-    return 1 # GPT not found
-  else
     return 0 # GPT found
+  else
+    return 1 # GPT not found
   fi
 }
 
@@ -539,7 +539,7 @@ sanity_check()
     # Flag GPT use for the rest of the program:
     GPT_ENABLE=1
 
-    echo "* Checking GPT partition table (if any) of source device $SOURCE..."
+    echo "* Checking GPT partition table of source device $SOURCE..."
     if [ -e "/tmp/sgdisk.source" ]; then
       if ! mv "/tmp/sgdisk.source" "/tmp/sgdisk.source.bak"; then
         printf "\033[40m\033[1;31mERROR: Unable to rename previous /tmp/sgdisk.source! Quitting...\n\033[0m" >&2
@@ -557,7 +557,7 @@ sanity_check()
   fi
 
   if gpt_detect "$TARGET"; then
-    echo "* Checking GPT partition table (if any) of target device $TARGET..."
+    echo "* Checking GPT partition table of target device $TARGET..."
     if [ -e "/tmp/sgdisk.target" ]; then
       rm -f "/tmp/sgdisk.target.bak" >/dev/null 2>&1
       if ! mv "/tmp/sgdisk.target" "/tmp/sgdisk.target.bak"; then
