@@ -787,7 +787,7 @@ copy_boot_partitions()
     retval=$?
 
     if [ $retval -ne 0 ]; then
-      printf "\033[40m\033[1;31mERROR: GPT boot partition %s failed to copy to %s(%i)!\n\n\033[0m" "$SOURCE_PART" "$TARGET_PART" $retval >&2
+      printf "\033[40m\033[1;31mERROR: Boot partition %s failed to copy to %s(%i)!\n\n\033[0m" "$SOURCE_PART" "$TARGET_PART" $retval >&2
     fi
   done
 }
