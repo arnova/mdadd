@@ -1,10 +1,10 @@
 #!/bin/sh
 
-MY_VERSION="2.04d"
+MY_VERSION="2.04e"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: December 23, 2022
-# (C) Copyright 2005-2022 by Arno van Amersfoort
+# Last update: July 7, 2023
+# (C) Copyright 2005-2023 by Arno van Amersfoort
 # Homepage              : https://rocky.eld.leidenuniv.nl/
 # Email                 : a r n o v a AT r o c k y DOT e l d DOT l e i d e n u n i v DOT n l
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -330,7 +330,7 @@ partprobe()
 # Function to detect whether a device has a GPT partition table
 gpt_detect()
 {
-  if sfdisk -d "$1" |grep -q -E -i -e '^/dev/.*[[:blank:]]Id=ee' -e '^label: gpt'; then
+  if sfdisk -d "$1" 2>&1 |grep -q -E -i -e '^/dev/.*[[:blank:]]Id=ee' -e '^label: gpt'; then
     return 0 # GPT found
   else
     return 1 # GPT not found
@@ -796,7 +796,7 @@ copy_boot_partitions()
 #######################
 # Program entry point #
 #######################
-echo "mdadd v$MY_VERSION - (C) Copyright 2005-2022 by Arno van Amersfoort"
+echo "mdadd v$MY_VERSION - (C) Copyright 2005-2023 by Arno van Amersfoort"
 echo ""
 
 # Set environment variables to default
