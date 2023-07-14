@@ -498,7 +498,7 @@ sanity_check()
     exit 8
   fi
 
-  echo "* Perfoming mdadm detail scan..."
+  echo "* Performing mdadm detail scan..."
   mdadm --detail --scan --verbose >/dev/null
   retval=$?
   if [ $retval -ne 0 ]; then
