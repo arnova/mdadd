@@ -1,10 +1,10 @@
 #!/bin/sh
 
-MY_VERSION="2.04e"
+MY_VERSION="2.04f"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: July 7, 2023
-# (C) Copyright 2005-2023 by Arno van Amersfoort
+# Last update: November 18, 2024
+# (C) Copyright 2005-2024 by Arno van Amersfoort
 # Web                   : https://github.com/arnova/mdadd
 # Email                 : a r n o DOT v a n DOT a m e r s f o o r t AT g m a i l DOT c o m
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -151,8 +151,15 @@ get_partition_prefix()
 # This needs to handle the following formats properly: /dev/sda12, /dev/sda12p3, /dev/nvm0n1p12
 get_partition_number()
 {
-  # Obtain the last number from the string and consider that the partition number
-  echo "$1" |sed -r s,'.*[a-z]+([0-9]+)$','\1',
+  # Strip all but the last non-alpha part of the string
+  local STRIP_DEVICE="$(echo "$1" |sed -r s,'.*[a-z]+',,)"
+
+  if [ -z "$STRIP_DEVICE" ]; then
+    echo ""
+  else
+    # Obtain the last number from the string and consider that the partition number
+    echo "$STRIP_DEVICE" |grep -E '^[0-9]+$'
+  fi
 }
 
 
@@ -796,7 +803,7 @@ copy_boot_partitions()
 #######################
 # Program entry point #
 #######################
-echo "mdadd v$MY_VERSION - (C) Copyright 2005-2023 by Arno van Amersfoort"
+echo "mdadd v$MY_VERSION - (C) Copyright 2005-2024 by Arno van Amersfoort"
 echo ""
 
 # Set environment variables to default
