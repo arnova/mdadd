@@ -1,10 +1,10 @@
 #!/bin/sh
 
-MY_VERSION="2.04f"
+MY_VERSION="2.04g"
 # ----------------------------------------------------------------------------------------------------------------------
 # Linux MD (Soft)RAID Add Script - Add a (new) harddisk to another multi MD-array harddisk
-# Last update: November 18, 2024
-# (C) Copyright 2005-2024 by Arno van Amersfoort
+# Last update: January 27, 2025
+# (C) Copyright 2005-2025 by Arno van Amersfoort
 # Web                   : https://github.com/arnova/mdadd
 # Email                 : a r n o DOT v a n DOT a m e r s f o o r t AT g m a i l DOT c o m
 #                         (note: you must remove all spaces and substitute the @ and the . at the proper locations!)
@@ -789,12 +789,23 @@ copy_boot_partitions()
     SOURCE_PART="$(add_partition_number "$SOURCE" "$NUM")"
     TARGET_PART="$(add_partition_number "$TARGET" "$NUM")"
 
+    CHECK_MOUNT="$(grep "^$SOURCE_PART[[:blank:]]" /etc/mtab |cut -d' ' -f1)"
+    if [ -n "$CHECK_MOUNT" ]; then
+      echo "NOTE: Source partition \"$SOURCE_PART\" is mounted. Unmounting..."
+
+      umount "$CHECK_MOUNT"
+    fi
+
     echo "* Copy boot partition $SOURCE_PART to $TARGET_PART..."
     dd if=$SOURCE_PART of=$TARGET_PART bs=1M
     retval=$?
 
     if [ $retval -ne 0 ]; then
       printf "\033[40m\033[1;31mERROR: Boot partition %s failed to copy to %s(%i)!\n\n\033[0m" "$SOURCE_PART" "$TARGET_PART" $retval >&2
+    fi
+
+    if [ -n "$CHECK_MOUNT" ]; then
+      mount "$CHECK_MOUNT"
     fi
   done
 }
@@ -803,7 +814,7 @@ copy_boot_partitions()
 #######################
 # Program entry point #
 #######################
-echo "mdadd v$MY_VERSION - (C) Copyright 2005-2024 by Arno van Amersfoort"
+echo "mdadd v$MY_VERSION - (C) Copyright 2005-2025 by Arno van Amersfoort"
 echo ""
 
 # Set environment variables to default
