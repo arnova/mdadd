@@ -405,7 +405,6 @@ sanity_check()
 
   check_command_error mdadm
   check_command_error sfdisk
-  check_command_error fdisk
   check_command_error sgdisk
   check_command_error dd
   check_command_error awk
