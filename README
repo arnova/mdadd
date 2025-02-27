@@ -51,9 +51,8 @@ your Linux MD devices (used through mdadm.conf's PROGRAM directive).
 Requirements
 ------------
 - mdadm
-- (Default) system binaries like sfdisk/fdisk/dd
-- sgdisk/gdisk (when GPT support is required)
-- (root) POSIX shell
+- (Default) system binaries: awk/dd/cat/grep/sed
+- (Additional) binaries: sgdisk/gdisk/blkid/lsblk/blockdev
 
 Usage
 -----
